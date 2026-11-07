@@ -1,0 +1,150 @@
+{
+  "about": "What's new, shown once in the island after Puhu updates (src/whats-new/). Every release adds its entry here, in the 14 languages: 1 to 4 items, a short title and one line each, an icon from ICON_NAMES in src/whats-new/whats-new.ts.",
+  "releases": [
+    {
+      "version": "0.6.0",
+      "items": [
+        {
+          "icon": "heart",
+          "title": {
+            "en": "Meet Puhu",
+            "zh-Hans": "认识 Puhu",
+            "hi": "मिलिए Puhu से",
+            "es": "Te presentamos a Puhu",
+            "ar": "تعرّف على Puhu",
+            "fr": "Voici Puhu",
+            "bn": "Puhu-র সাথে পরিচয়",
+            "pt-BR": "Conheça o Puhu",
+            "ru": "Знакомьтесь, Puhu",
+            "id": "Kenalan dengan Puhu",
+            "de": "Das ist Puhu",
+            "tr": "Puhu ile tanışın",
+            "ko": "Puhu를 만나 보세요",
+            "ja": "Puhu の登場"
+          },
+          "detail": {
+            "en": "An owl now lives in the island, with his own look, colours and sounds.",
+            "zh-Hans": "一只猫头鹰住进了灵动岛，有自己的样子、颜色和声音。",
+            "hi": "अब आइलैंड में एक उल्लू रहता है, अपने रूप, रंगों और आवाज़ों के साथ।",
+            "es": "Un búho vive ahora en la isla, con su propio aspecto, colores y sonidos.",
+            "ar": "بومة تعيش الآن في الجزيرة، بمظهرها وألوانها وأصواتها الخاصة.",
+            "fr": "Un hibou vit désormais dans l'île, avec son allure, ses couleurs et ses sons.",
+            "bn": "এখন আইল্যান্ডে একটি পেঁচা থাকে, নিজের চেহারা, রং আর শব্দ নিয়ে।",
+            "pt-BR": "Uma coruja agora mora na ilha, com visual, cores e sons próprios.",
+            "ru": "Теперь в острове живёт сова — со своим видом, цветами и звуками.",
+            "id": "Seekor burung hantu kini tinggal di pulau, dengan tampilan, warna, dan suaranya sendiri.",
+            "de": "In der Insel wohnt jetzt eine Eule, mit eigenem Aussehen, eigenen Farben und Klängen.",
+            "tr": "Adada artık kendi görünüşü, renkleri ve sesleriyle bir baykuş yaşıyor.",
+            "ko": "이제 아일랜드에 부엉이가 살아요. 자기만의 모습, 색, 소리와 함께요.",
+            "ja": "アイランドにフクロウが住み始めました。見た目も色も音も彼だけのものです。"
+          }
+        },
+        {
+          "icon": "clock",
+          "title": {
+            "en": "Focus with Puhu",
+            "zh-Hans": "和 Puhu 一起专注",
+            "hi": "Puhu के साथ फ़ोकस",
+            "es": "Concéntrate con Puhu",
+            "ar": "ركّز مع Puhu",
+            "fr": "Concentrez-vous avec Puhu",
+            "bn": "Puhu-র সাথে মনোযোগ",
+            "pt-BR": "Foque com o Puhu",
+            "ru": "Фокус вместе с Puhu",
+            "id": "Fokus bersama Puhu",
+            "de": "Fokus mit Puhu",
+            "tr": "Puhu ile odaklan",
+            "ko": "Puhu와 집중하기",
+            "ja": "Puhu と集中"
+          },
+          "detail": {
+            "en": "Pomodoro rounds earn points and levels; a daily goal, a streak with shields, quests and a daily egg.",
+            "zh-Hans": "番茄钟每一轮都能赚积分和等级；还有每日目标、带护盾的连续记录、任务和每日彩蛋。",
+            "hi": "पोमोडोरो राउंड से अंक और लेवल मिलते हैं; रोज़ का लक्ष्य, ढाल वाली स्ट्रीक, क्वेस्ट और रोज़ का अंडा।",
+            "es": "Las rondas Pomodoro dan puntos y niveles; una meta diaria, una racha con escudos, misiones y un huevo diario.",
+            "ar": "جولات بومودورو تمنحك نقاطًا ومستويات؛ وهدف يومي وسلسلة بدروع ومهام وبيضة يومية.",
+            "fr": "Les tours Pomodoro rapportent des points et des niveaux ; un objectif du jour, une série avec boucliers, des quêtes et un œuf quotidien.",
+            "bn": "পোমোডোরো রাউন্ডে পয়েন্ট আর লেভেল মেলে; দৈনিক লক্ষ্য, ঢালসহ স্ট্রিক, কোয়েস্ট আর রোজকার ডিম।",
+            "pt-BR": "Rodadas Pomodoro rendem pontos e níveis; meta diária, sequência com escudos, missões e um ovo por dia.",
+            "ru": "Раунды Pomodoro приносят очки и уровни; цель на день, серия со щитами, задания и ежедневное яйцо.",
+            "id": "Ronde Pomodoro memberi poin dan level; target harian, streak dengan perisai, misi, dan telur harian.",
+            "de": "Pomodoro-Runden bringen Punkte und Stufen; ein Tagesziel, eine Serie mit Schilden, Aufgaben und ein tägliches Ei.",
+            "tr": "Pomodoro turları puan ve seviye kazandırır; günlük hedef, kalkanlı seri, görevler ve günlük yumurta.",
+            "ko": "뽀모도로 라운드로 포인트와 레벨을 얻어요. 하루 목표, 방패가 있는 연속 기록, 퀘스트, 매일의 알까지.",
+            "ja": "ポモドーロのラウンドでポイントとレベルを獲得。毎日の目標、シールド付きの連続記録、クエスト、毎日のたまご。"
+          }
+        },
+        {
+          "icon": "sparkles",
+          "title": {
+            "en": "Puhu's Nest",
+            "zh-Hans": "Puhu 的小窝",
+            "hi": "Puhu का घोंसला",
+            "es": "El nido de Puhu",
+            "ar": "عش Puhu",
+            "fr": "Le nid de Puhu",
+            "bn": "Puhu-র বাসা",
+            "pt-BR": "O ninho do Puhu",
+            "ru": "Гнездо Puhu",
+            "id": "Sarang Puhu",
+            "de": "Puhus Nest",
+            "tr": "Puhu'nun Yuvası",
+            "ko": "Puhu의 둥지",
+            "ja": "Puhu の巣"
+          },
+          "detail": {
+            "en": "A tree that grows with your rounds, your weekly league, every badge and the feather shop.",
+            "zh-Hans": "一棵随你的专注轮次长大的树，还有每周联赛、所有徽章和羽毛商店。",
+            "hi": "आपके राउंड के साथ बढ़ता पेड़, आपकी साप्ताहिक लीग, हर बैज और पंखों की दुकान।",
+            "es": "Un árbol que crece con tus rondas, tu liga semanal, todas las insignias y la tienda de plumas.",
+            "ar": "شجرة تنمو مع جولاتك، ودوريك الأسبوعي، وكل الشارات، ومتجر الريش.",
+            "fr": "Un arbre qui grandit avec vos tours, votre ligue de la semaine, tous les badges et la boutique de plumes.",
+            "bn": "তোমার রাউন্ডের সাথে বেড়ে ওঠা একটি গাছ, সাপ্তাহিক লিগ, সব ব্যাজ আর পালকের দোকান।",
+            "pt-BR": "Uma árvore que cresce com suas rodadas, sua liga semanal, todas as medalhas e a loja de penas.",
+            "ru": "Дерево, которое растёт с вашими раундами, недельная лига, все значки и магазин перьев.",
+            "id": "Pohon yang tumbuh bersama rondemu, liga mingguan, semua lencana, dan toko bulu.",
+            "de": "Ein Baum, der mit deinen Runden wächst, deine Wochenliga, alle Abzeichen und der Federladen.",
+            "tr": "Turlarınla büyüyen bir ağaç, haftalık ligin, tüm rozetler ve tüy dükkânı.",
+            "ko": "라운드와 함께 자라는 나무, 주간 리그, 모든 배지, 깃털 상점.",
+            "ja": "ラウンドとともに育つ木、週ごとのリーグ、すべてのバッジ、羽のショップ。"
+          }
+        },
+        {
+          "icon": "eye",
+          "title": {
+            "en": "Little surprises",
+            "zh-Hans": "小惊喜",
+            "hi": "छोटे सरप्राइज़",
+            "es": "Pequeñas sorpresas",
+            "ar": "مفاجآت صغيرة",
+            "fr": "Petites surprises",
+            "bn": "ছোট্ট চমক",
+            "pt-BR": "Pequenas surpresas",
+            "ru": "Маленькие сюрпризы",
+            "id": "Kejutan kecil",
+            "de": "Kleine Überraschungen",
+            "tr": "Küçük sürprizler",
+            "ko": "작은 깜짝 선물",
+            "ja": "小さなサプライズ"
+          },
+          "detail": {
+            "en": "Puhu notices the small things you do, and some of them earn secret badges.",
+            "zh-Hans": "Puhu 会注意到你做的小事，其中一些能赢得秘密徽章。",
+            "hi": "Puhu आपकी छोटी-छोटी बातों पर ध्यान देता है, और कुछ से गुप्त बैज मिलते हैं।",
+            "es": "Puhu se fija en los pequeños detalles, y algunos dan insignias secretas.",
+            "ar": "يلاحظ Puhu الأشياء الصغيرة التي تفعلها، وبعضها يمنحك شارات سرية.",
+            "fr": "Puhu remarque les petites choses que vous faites, et certaines valent des badges secrets.",
+            "bn": "তুমি যে ছোট ছোট কাজ করো Puhu তা খেয়াল করে, আর কিছু থেকে গোপন ব্যাজ মেলে।",
+            "pt-BR": "O Puhu repara nas pequenas coisas que você faz, e algumas rendem medalhas secretas.",
+            "ru": "Puhu замечает мелочи, которые вы делаете, а за некоторые дают секретные значки.",
+            "id": "Puhu memperhatikan hal-hal kecil yang kamu lakukan, dan sebagian memberi lencana rahasia.",
+            "de": "Puhu bemerkt die kleinen Dinge, die du tust, und manche bringen geheime Abzeichen.",
+            "tr": "Puhu yaptığın küçük şeyleri fark eder, bazıları gizli rozet kazandırır.",
+            "ko": "Puhu는 당신의 작은 행동을 알아채고, 그중 일부는 비밀 배지를 줘요.",
+            "ja": "Puhu はあなたの小さな行動に気づき、その一部は秘密のバッジになります。"
+          }
+        }
+      ]
+    }
+  ]
+}

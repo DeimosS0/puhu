@@ -1,0 +1,31 @@
+// The Flow pages of the Puhu window, by id (shell.ts draws the Island ones
+// from the island's settings).
+
+import type { FlowPageRenderer, PageId } from "./shell";
+import { dictationPage } from "./pages/dictation";
+import { nestPage } from "./pages/nest";
+import { weekPage } from "./pages/week";
+import { notesPage } from "./pages/notes";
+import { insightsPage } from "./pages/insights";
+import { dictionaryPage, snippetsPage } from "./pages/words";
+import { stylesPage } from "./pages/styles";
+import { flowSettingsPage } from "./pages/flowsettings";
+import { voicePage } from "./pages/voice";
+import { mailBannedPage, mailOverviewPage, mailRulesPage, mailVIPPage } from "./pages/mail";
+
+export const FLOW_PAGE_RENDERERS: Partial<Record<PageId, FlowPageRenderer>> = {
+  nest: nestPage,
+  week: weekPage,
+  dictation: dictationPage,
+  notes: notesPage,
+  insights: insightsPage,
+  dictionary: dictionaryPage,
+  snippets: snippetsPage,
+  styles: stylesPage,
+  flowsettings: flowSettingsPage,
+  voice: voicePage,
+  mailOverview: mailOverviewPage,
+  mailRules: mailRulesPage,
+  mailBanned: mailBannedPage,
+  mailVIP: mailVIPPage,
+};
