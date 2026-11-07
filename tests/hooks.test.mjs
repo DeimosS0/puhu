@@ -18,6 +18,7 @@ const island = {
   alert: (view) => asked.push(`alert:${view}`),
   setView: (view) => asked.push(`setView:${view}`),
   reveal: () => asked.push("reveal"),
+  emote: (name) => asked.push(`emote:${name}`),
   dropPin: () => asked.push("dropPin"),
   keepWatch: () => asked.push("keepWatch"),
 };
@@ -191,6 +192,15 @@ test("a finished session opens the finished view, then goes idle after 5.2 s", (
   seconds(5.1);
   assert.equal(task().state, "finished");
   seconds(0.1);
+  assert.equal(task().state, "idle");
+});
+
+test("a turn ending in the terminal the user is looking at shows no card: Puhu nods", () => {
+  hook({ hook_event_name: "Stop", message: "done", puhu_watching: true });
+  assert.equal(task().state, "finished");
+  assert.deepEqual(asked, ["emote:happy"]);
+  assert.equal(task().pillBadge, "finished");
+  seconds(5.2);
   assert.equal(task().state, "idle");
 });
 

@@ -229,6 +229,14 @@ async fn handle(app: AppHandle, mut pipe: impl Relay) {
         if event != "StatusLine" {
             log::line(format!("hook {event}"));
         }
+        // A turn ending in the terminal or editor the user is looking at needs no card
+        // (hooks.ts): asked now, while it is the one in front.
+        if event == "Stop" {
+            let owners = payload.get("session_id").and_then(Value::as_str).and_then(session_window::lookup);
+            if let Some(owners) = owners {
+                payload["puhu_watching"] = json!(crate::platform::session_in_front(&owners));
+            }
+        }
         let _ = app.emit_to(WINDOW_LABEL, "hook", payload);
         pipe.finish();
         return;

@@ -9,7 +9,7 @@ import { Sound } from "../core/sound";
 import { State } from "../core/state";
 import { desktopDances } from "../core/spotify";
 import {
-  DESKTOP_EVENTS, DesktopPuhuController, alertActive, type DesktopSnapshot,
+  DESKTOP_EVENTS, DesktopPuhuController, FLIGHT_MS, HANDOFF_MS, alertActive, type DesktopSnapshot, type Dock,
 } from "../puhu/desktop-logic";
 
 /** Label of the desktop Puhu's window (desktop.rs LABEL). */
@@ -23,6 +23,11 @@ export interface DesktopHost {
   wardrobeFromDesktop(): void;
   /** Three pokes on the desktop Puhu. */
   dizzyFromDesktop(): void;
+  /** Where his Puhu sits in the island, for a flight to start or end there. */
+  dock(): Dock;
+  /** He passes between the island and the desktop: the island's Puhu fades instead of
+   *  blinking, and lands with a bounce when he comes home. */
+  handoff(landing: boolean): void;
 }
 
 export class DesktopLink {
@@ -40,9 +45,24 @@ export class DesktopLink {
   constructor(host: DesktopHost) {
     this.host = host;
     this.controller = new DesktopPuhuController({
-      flyOut: async (anywhere) => (await Bridge.desktopFlyOut(anywhere)) ?? false,
-      flyHome: async (forget) => (await Bridge.desktopFlyHome(forget)) ?? true,
+      flyOut: async (anywhere) => {
+        await emitToWindow(WINDOW, DESKTOP_EVENTS.dock, this.host.dock());
+        return (await Bridge.desktopFlyOut(anywhere)) ?? false;
+      },
+      flyHome: async (forget) => {
+        await emitToWindow(WINDOW, DESKTOP_EVENTS.dock, this.host.dock());
+        // As he reaches the island, the island's Puhu fades in where the desktop's fades out.
+        const arriving = window.setTimeout(() => {
+          this.host.handoff(true);
+          State.puhuOnDesktop = false;
+          State.notify();
+        }, FLIGHT_MS - HANDOFF_MS);
+        const done = (await Bridge.desktopFlyHome(forget)) ?? true;
+        window.clearTimeout(arriving);
+        return done;
+      },
       setAway: (away) => {
+        if (away !== State.puhuOnDesktop) this.host.handoff(false);
         State.puhuOnDesktop = away;
         State.notify();
       },

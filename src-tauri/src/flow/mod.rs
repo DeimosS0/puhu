@@ -121,8 +121,10 @@ pub fn setup(app: &AppHandle) {
     hush::setup();
     let flow = Arc::new(Flow { store: Mutex::new(Store::load()), running: Mutex::new(None) });
     app.manage(flow.clone());
-    pill::setup(app);
     let prefs = flow.store.lock().unwrap().prefs.clone();
+    // Flow and « OK Puhu » are set aside (src/core/shelf.ts): their pill's window, a
+    // WebView of its own (some 40 MB), is made only for someone who still has one on.
+    pill::setup(app, prefs.enabled || prefs.voice);
     pill::update(app, |s| {
         s.edge = pill::edge_name(prefs.edge).into();
         s.key = key_id(prefs.key, &prefs.key_combo);

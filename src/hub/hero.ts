@@ -6,10 +6,14 @@
 //
 // One animation loop draws every live canvas; it stops when none is left or
 // the window is hidden, so a hidden window costs nothing, and skips the ones
-// scrolled out of sight.
+// scrolled out of sight. Left open behind other windows, it rests too: it drew
+// at the screen's full rate all the while (165 a second here), more than half of
+// Puhu's GPU use; it moves again with the focus back or the pointer over it, at
+// most 60 frames a second.
 
 import { BotEngine, hexToRGB } from "../puhu/engine";
 import { onScreen, shouldAnimate } from "./frames";
+import { Pace } from "../core/pace";
 import type { BotEmoteName, BotStateName } from "../core/layout";
 
 interface Animated {
@@ -21,7 +25,8 @@ interface Animated {
 }
 
 const live = new Set<Animated>();
-let frame: number | null = null;
+/** Cancels the frame asked for, while one is. */
+let frame: (() => void) | null = null;
 /** The stand-in timer while the webview gives no animation frames (see `ask`). */
 let fallback: number | null = null;
 /** No animation frame came after the last ask: the timer drives the loop. */
@@ -30,12 +35,20 @@ let last = performance.now();
 const start = performance.now();
 /** The Puhu window is on screen, as Rust last said (`setWindowShown`). */
 let windowShown = true;
+/** Not faster than this, a steady number of refreshes apart. */
+const FRAME_MS = 1000 / 60;
+const pace = new Pace();
+/** Out of focus, the bands move on this long after the pointer was last over them. */
+const ATTENDED_MS = 3000;
+let lastPointer = -Infinity;
 
 function running(): boolean {
   // WebView2 can leave a window created hidden reporting "hidden" once shown:
   // focused, it is in front of the user whatever the page thinks.
-  const visibility = document.hasFocus?.() ? "visible" : document.visibilityState;
-  return shouldAnimate(live.size, visibility, windowShown);
+  const focused = document.hasFocus?.() === true;
+  const visibility = focused ? "visible" : document.visibilityState;
+  const attended = focused || performance.now() - lastPointer < ATTENDED_MS;
+  return attended && shouldAnimate(live.size, visibility, windowShown);
 }
 
 function loop(now: number) {
@@ -67,14 +80,15 @@ function loop(now: number) {
  * and the loop goes back to real frames the moment one arrives.
  */
 function ask() {
-  frame = requestAnimationFrame((now) => {
+  const cancel = pace.after(last, FRAME_MS, (now) => {
     starved = false;
     loop(now);
   });
+  frame = cancel;
   fallback = window.setTimeout(() => {
     fallback = null;
     if (frame === null) return;
-    cancelAnimationFrame(frame);
+    cancel();
     starved = true;
     loop(performance.now());
   }, starved ? 33 : 250);
@@ -89,13 +103,17 @@ function wake() {
 
 document.addEventListener("visibilitychange", wake);
 window.addEventListener("focus", wake);
+window.addEventListener("pointermove", () => {
+  lastPointer = performance.now();
+  wake();
+});
 
 /** The window was shown or hidden (the `hub-visible` event): hidden, the loop
  *  stops at once; shown, it starts again. */
 export function setWindowShown(shown: boolean) {
   windowShown = shown;
   if (!shown) {
-    if (frame !== null) cancelAnimationFrame(frame);
+    frame?.();
     if (fallback !== null) window.clearTimeout(fallback);
     frame = null;
     fallback = null;

@@ -469,6 +469,7 @@ unsafe extern "system" fn foreground_changed(
         SetWindowPos, HWND_TOPMOST, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOOWNERZORDER, SWP_NOSIZE,
     };
     crate::game::front_changed();
+    crate::activity::front_changed();
     let raw = ON_TOP.load(std::sync::atomic::Ordering::Relaxed);
     if raw == 0 || presenting() {
         return;
@@ -519,6 +520,24 @@ pub fn set_shown(win: &WebviewWindow, shown: bool) {
     }
     let _ = win.with_webview(move |webview| unsafe {
         let _ = webview.controller().SetIsVisible(shown);
+    });
+}
+
+/// A window nobody sees (Puhu's window hidden, the desktop Puhu or the Flow pill parked)
+/// asks WebView2 to keep as little memory as it can; seen again, as usual. The page goes
+/// on running either way. Each such window held 50 to 70 MB for nothing.
+pub fn set_memory_low(win: &WebviewWindow, low: bool) {
+    use webview2_com::Microsoft::Web::WebView2::Win32::{
+        ICoreWebView2_19, COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_LOW, COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_NORMAL,
+    };
+    // webview2-com's own windows-core (webview_drop.rs does the same).
+    use wv2_core::Interface;
+    let _ = win.with_webview(move |webview| unsafe {
+        let Ok(core) = webview.controller().CoreWebView2() else { return };
+        // An older WebView2 runtime has no such setting: nothing changes there.
+        let Ok(core) = core.cast::<ICoreWebView2_19>() else { return };
+        let level = if low { COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_LOW } else { COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_NORMAL };
+        let _ = core.SetMemoryUsageTargetLevel(level);
     });
 }
 
@@ -765,6 +784,14 @@ pub fn focus_process_window(pid: u32, folder: &str) -> bool {
 /// Brings forward the window a session remembered (`window_owners`).
 pub fn focus_session_window(owners: &[u32], folder: &str) -> bool {
     owners.first().is_some_and(|pid| focus_process_window(*pid, folder))
+}
+
+/// Whether the window in front belongs to one of `owners`: the terminal or editor a
+/// session runs in is being looked at.
+pub fn session_in_front(owners: &[u32]) -> bool {
+    let mut pid = 0u32;
+    unsafe { GetWindowThreadProcessId(GetForegroundWindow(), Some(&mut pid as *mut u32)) };
+    pid != 0 && owners.contains(&pid)
 }
 
 /// Brings forward a running app's window, by executable name: the one whose title

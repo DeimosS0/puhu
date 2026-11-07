@@ -105,6 +105,8 @@ pub struct Settings {
     /// The apps seen filling the screen, by program ("cs2"), each on or off. Owned by the
     /// Rust side (game.rs adds them): what a webview sends back is ignored.
     pub game_apps: BTreeMap<String, crate::game::GameApp>,
+    /// The town Puhu dresses for the weather of (weather.rs); none, nothing is asked.
+    pub weather_place: Option<crate::weather::Place>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -122,6 +124,9 @@ pub struct DesktopSpot {
     pub y: f64,
     /// What x and y are measured in (`DesktopMode::space`).
     pub space: String,
+    /// Perched on the taskbar: y follows the taskbar's edge wherever it is now.
+    #[serde(default)]
+    pub perched: bool,
 }
 
 fn default_model() -> String {
@@ -143,6 +148,7 @@ impl Default for Settings {
                 "integration_n8n".into(),
                 "integration_vercel".into(),
                 "integration_github".into(),
+                "integration_nowplaying".into(),
             ],
             main_pill: "integration_claude".into(),
             screen: "primary".into(),
@@ -173,6 +179,7 @@ impl Default for Settings {
             focus_reminder: "20:00".into(),
             game_mode: true,
             game_apps: BTreeMap::new(),
+            weather_place: None,
         }
     }
 }
@@ -461,7 +468,7 @@ mod tests {
   "shortcuts": { "openChat": { "keys": "Ctrl+Shift+K", "enabled": false } },
   "pillColors": { "integration_claude": "#2DD4BF" },
   "language": "pt-BR",
-  "desktopPuhu": { "onDesktop": true, "spot": { "x": 1500.5, "y": -300.0, "space": "screen" } },
+  "desktopPuhu": { "onDesktop": true, "spot": { "x": 1500.5, "y": -300.0, "space": "screen", "perched": true } },
   "showClock": true,
   "closedIsland": "music",
   "closedMusic": false,
@@ -471,7 +478,8 @@ mod tests {
   "focusGame": true,
   "focusReminder": "21:30",
   "gameMode": false,
-  "gameApps": { "cs2": { "name": "Counter-Strike 2", "on": true }, "chrome": { "name": "YouTube", "on": false } }
+  "gameApps": { "cs2": { "name": "Counter-Strike 2", "on": true }, "chrome": { "name": "YouTube", "on": false } },
+  "weatherPlace": { "name": "İzmir, Türkiye", "lat": 38.42, "lon": 27.14 }
 }"##;
 
     fn custom() -> Value {
@@ -876,6 +884,7 @@ mod tests {
                 "focusReminder",
                 "gameMode",
                 "gameApps",
+                "weatherPlace",
             ]
         );
         let _ = std::fs::remove_dir_all(&dir);

@@ -20,6 +20,17 @@ mod linux_focus;
 #[cfg(target_os = "linux")]
 pub use self::linux_focus::{focus_session_window, process_ancestors, window_owners};
 
+/// Linux: WebKitGTK has no such setting.
+#[cfg(target_os = "linux")]
+pub fn set_memory_low(_win: &tauri::WebviewWindow, _low: bool) {}
+
+/// Linux: which window is in front is the display server's to say; Puhu does not ask,
+/// and a turn's end always shows its card there.
+#[cfg(target_os = "linux")]
+pub fn session_in_front(_owners: &[u32]) -> bool {
+    false
+}
+
 /// A window's place in physical pixels (its client size) and its display's scale.
 #[derive(Clone, Copy, Debug)]
 pub struct Frame {

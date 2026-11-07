@@ -110,8 +110,8 @@ const DEFAULT_STATUS: FlowStatus = {
 
 export async function startHub(root: HTMLElement, opts: HubOptions) {
   document.body.classList.add("hub-window");
-  // The window is created hidden and only shown and hidden afterwards: its
-  // canvases animate only while it is on screen (#792).
+  // The window exists while it is open (closed, it is gone); minimised, its
+  // canvases stop: they animate only while it is on screen (#792).
   await onEvent<boolean>("hub-visible", setWindowShown);
   // While you dictate: the loudest of the pill's bands.
   await onEvent<number[]>("flow-bands", (bands) => setVoiceLevel(Math.max(0, ...bands)));
@@ -349,6 +349,10 @@ export async function startHub(root: HTMLElement, opts: HubOptions) {
   clear(root);
   root.append(side, h("main", { class: "hub-panel" }, scroll));
   drawStatus();
+  // Made to show a page (lib.rs adds ?page=): that one first.
+  const asked = typeof location === "undefined" ? null : new URLSearchParams(location.search).get("page");
+  const askedId = (asked === "settings" ? (SHELVED.flow ? "general" : "flowsettings") : asked) as PageId;
+  if (asked && ALL.some((p) => p.id === askedId)) current = askedId;
   await show(current);
 
   void onEvent<string>("hub-page", (page) => {

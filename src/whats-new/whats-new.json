@@ -2,6 +2,151 @@
   "about": "What's new, shown once in the island after Puhu updates (src/whats-new/). Every release adds its entry here, in the 14 languages: 1 to 4 items, a short title and one line each, an icon from ICON_NAMES in src/whats-new/whats-new.ts.",
   "releases": [
     {
+      "version": "0.6.1",
+      "items": [
+        {
+          "icon": "heart",
+          "title": {
+            "en": "On your taskbar",
+            "zh-Hans": "栖息在任务栏上",
+            "hi": "आपके टास्कबार पर",
+            "es": "En tu barra de tareas",
+            "ar": "على شريط المهام",
+            "fr": "Sur votre barre des tâches",
+            "bn": "আপনার টাস্কবারে",
+            "pt-BR": "Na sua barra de tarefas",
+            "ru": "На панели задач",
+            "id": "Di taskbar Anda",
+            "de": "Auf deiner Taskleiste",
+            "tr": "Görev çubuğunda",
+            "ko": "작업 표시줄 위에",
+            "ja": "タスクバーの上に"
+          },
+          "detail": {
+            "en": "Let Puhu go near the taskbar and he perches on it, walks along it, and likes a slow stroke of the cursor.",
+            "zh-Hans": "把 Puhu 放到任务栏附近，他就会站在上面、沿着它走走，也喜欢你用光标慢慢摸摸他。",
+            "hi": "Puhu को टास्कबार के पास छोड़ें तो वह उस पर बैठ जाता है, उस पर चलता है, और कर्सर से धीरे-धीरे सहलाना उसे पसंद है।",
+            "es": "Suelta a Puhu cerca de la barra de tareas y se posa en ella, camina por ella y le gusta que lo acaricies despacio con el cursor.",
+            "ar": "اترك Puhu قرب شريط المهام فيحطّ عليه ويمشي على طوله، ويحب أن تمسح عليه بالمؤشر ببطء.",
+            "fr": "Lâchez Puhu près de la barre des tâches : il s'y perche, s'y promène et aime qu'on le caresse lentement du curseur.",
+            "bn": "Puhu-কে টাস্কবারের কাছে ছেড়ে দিন, সে তার ওপর বসবে, হাঁটবে, আর কার্সর দিয়ে আস্তে আদর করলে খুশি হয়।",
+            "pt-BR": "Solte o Puhu perto da barra de tarefas e ele pousa nela, anda por ela e gosta de um carinho lento com o cursor.",
+            "ru": "Отпустите Puhu рядом с панелью задач — он сядет на неё, будет по ней прогуливаться и любит, когда его медленно гладят курсором.",
+            "id": "Lepaskan Puhu di dekat taskbar, ia akan bertengger di sana, berjalan di sepanjangnya, dan suka dielus pelan dengan kursor.",
+            "de": "Lass Puhu nahe der Taskleiste los: Er setzt sich darauf, spaziert an ihr entlang und mag es, langsam mit dem Mauszeiger gestreichelt zu werden.",
+            "tr": "Puhu'yu görev çubuğunun yakınına bırak; üstüne konar, üzerinde yürür ve imleçle yavaşça sevilmeyi sever.",
+            "ko": "Puhu를 작업 표시줄 근처에 놓으면 그 위에 앉아 걸어 다니고, 커서로 천천히 쓰다듬어 주면 좋아해요.",
+            "ja": "Puhu をタスクバーの近くで放すと、そこにとまって歩き回ります。カーソルでゆっくりなでられるのが好きです。"
+          }
+        },
+        {
+          "icon": "paint",
+          "title": {
+            "en": "Dressed for the day",
+            "zh-Hans": "应时而装",
+            "hi": "दिन के हिसाब से तैयार",
+            "es": "Vestido para el día",
+            "ar": "يلبس ما يناسب يومك",
+            "fr": "Habillé pour la journée",
+            "bn": "দিনের মতো সাজ",
+            "pt-BR": "Vestido para o dia",
+            "ru": "Одет по погоде",
+            "id": "Berpakaian sesuai hari",
+            "de": "Passend angezogen",
+            "tr": "Güne göre giyinir",
+            "ko": "날씨와 일에 맞춘 차림",
+            "ja": "その日に合わせた装い"
+          },
+          "detail": {
+            "en": "An umbrella in the rain, a scarf in the cold, a mug while you code: type your town under General.",
+            "zh-Hans": "下雨撑伞，天冷围上围巾，写代码时端着咖啡：在“通用”里输入你的城市。",
+            "hi": "बारिश में छाता, ठंड में मफ़लर, कोड लिखते समय कॉफ़ी का मग: सामान्य में अपना शहर लिखें।",
+            "es": "Paraguas con lluvia, bufanda con frío, una taza mientras programas: escribe tu ciudad en General.",
+            "ar": "مظلة في المطر، ووشاح في البرد، وكوب قهوة وأنت تبرمج: اكتب مدينتك في «عام».",
+            "fr": "Un parapluie sous la pluie, une écharpe dans le froid, un mug quand vous codez : tapez votre ville dans Général.",
+            "bn": "বৃষ্টিতে ছাতা, ঠান্ডায় মাফলার, কোড লেখার সময় কফির মগ: সাধারণ-এ আপনার শহর লিখুন।",
+            "pt-BR": "Guarda-chuva na chuva, cachecol no frio, uma caneca enquanto você programa: digite sua cidade em Geral.",
+            "ru": "Зонт в дождь, шарф в холод, кружка, пока вы пишете код: введите город в разделе «Основные».",
+            "id": "Payung saat hujan, syal saat dingin, cangkir kopi saat Anda menulis kode: ketik kota Anda di Umum.",
+            "de": "Ein Schirm bei Regen, ein Schal bei Kälte, ein Becher beim Programmieren: Gib unter Allgemein deinen Ort ein.",
+            "tr": "Yağmurda şemsiye, soğukta atkı, kod yazarken kahve kupası: Genel'de şehrini yaz.",
+            "ko": "비 오면 우산, 추우면 목도리, 코딩할 땐 커피잔: 일반에서 사는 도시를 입력하세요.",
+            "ja": "雨なら傘、寒ければマフラー、コードを書くときはマグカップ。「一般」で街を入力してください。"
+          }
+        },
+        {
+          "icon": "clock",
+          "title": {
+            "en": "The hour, quietly",
+            "zh-Hans": "安静地报时",
+            "hi": "चुपचाप समय बताना",
+            "es": "La hora, en silencio",
+            "ar": "الساعة بهدوء",
+            "fr": "L'heure, en silence",
+            "bn": "নিঃশব্দে সময়",
+            "pt-BR": "A hora, em silêncio",
+            "ru": "Час — без звука",
+            "id": "Jam, tanpa suara",
+            "de": "Die Stunde, ganz leise",
+            "tr": "Sessizce saat başı",
+            "ko": "조용히 알려 주는 정시",
+            "ja": "静かに時報"
+          },
+          "detail": {
+            "en": "On the hour a little door opens in the closed island and Puhu bows by the time.",
+            "zh-Hans": "每到整点，收起的岛里会打开一扇小门，Puhu 在时间旁鞠个躬。",
+            "hi": "हर घंटे बंद आइलैंड में एक छोटा दरवाज़ा खुलता है और Puhu समय के पास झुककर अभिवादन करता है।",
+            "es": "A cada hora se abre una puertecita en la isla cerrada y Puhu se inclina junto a la hora.",
+            "ar": "مع كل ساعة يُفتح باب صغير في الجزيرة المغلقة وينحني Puhu بجانب الوقت.",
+            "fr": "À chaque heure, une petite porte s'ouvre dans l'îlot fermé et Puhu salue à côté de l'heure.",
+            "bn": "প্রতি ঘণ্টায় বন্ধ আইল্যান্ডে একটা ছোট দরজা খোলে, আর Puhu সময়ের পাশে মাথা নোয়ায়।",
+            "pt-BR": "A cada hora uma portinha se abre na ilha fechada e o Puhu faz uma reverência ao lado da hora.",
+            "ru": "Каждый час в свёрнутом острове открывается дверца, и Puhu кланяется рядом со временем.",
+            "id": "Setiap jam sebuah pintu kecil terbuka di pulau tertutup dan Puhu membungkuk di samping jam.",
+            "de": "Zur vollen Stunde öffnet sich in der geschlossenen Insel ein Türchen, und Puhu verbeugt sich neben der Uhrzeit.",
+            "tr": "Her saat başı kapalı adada küçük bir kapı açılır, Puhu saatin yanında eğilip selam verir.",
+            "ko": "정시마다 닫힌 아일랜드에 작은 문이 열리고 Puhu가 시간 옆에서 인사해요.",
+            "ja": "毎正時、閉じたアイランドに小さな扉が開き、Puhu が時刻の横でおじぎします。"
+          }
+        },
+        {
+          "icon": "bolt",
+          "title": {
+            "en": "Lighter and smoother",
+            "zh-Hans": "更轻快，更流畅",
+            "hi": "हल्का और ज़्यादा सहज",
+            "es": "Más ligero y fluido",
+            "ar": "أخف وأكثر سلاسة",
+            "fr": "Plus léger, plus fluide",
+            "bn": "আরও হালকা, আরও মসৃণ",
+            "pt-BR": "Mais leve e fluido",
+            "ru": "Легче и плавнее",
+            "id": "Lebih ringan dan mulus",
+            "de": "Leichter und flüssiger",
+            "tr": "Daha hafif, daha akıcı",
+            "ko": "더 가볍고 부드럽게",
+            "ja": "より軽く、なめらかに"
+          },
+          "detail": {
+            "en": "The music bars flow, music shows from the first start, and Puhu's window rests behind others and frees its memory when closed.",
+            "zh-Hans": "音乐条更流畅，首次启动就能显示音乐；Puhu 窗口在后台时会休息，关闭后释放内存。",
+            "hi": "म्यूज़िक बार सहज चलते हैं, पहली बार से ही संगीत दिखता है, और Puhu की विंडो पीछे होने पर आराम करती है और बंद करने पर मेमोरी छोड़ देती है।",
+            "es": "Las barras de música fluyen, la música aparece desde el primer inicio y la ventana de Puhu descansa detrás de otras y libera su memoria al cerrarse.",
+            "ar": "أشرطة الموسيقى تنساب، والموسيقى تظهر من أول تشغيل، ونافذة Puhu ترتاح خلف النوافذ الأخرى وتحرّر ذاكرتها عند إغلاقها.",
+            "fr": "Les barres de musique sont fluides, la musique s'affiche dès le premier lancement, et la fenêtre de Puhu se repose derrière les autres et libère sa mémoire à la fermeture.",
+            "bn": "মিউজিক বার মসৃণভাবে চলে, প্রথম চালু থেকেই গান দেখায়, আর Puhu-র উইন্ডো পেছনে থাকলে বিশ্রাম নেয় এবং বন্ধ করলে মেমরি ছেড়ে দেয়।",
+            "pt-BR": "As barras de música fluem, a música aparece desde a primeira abertura, e a janela do Puhu descansa atrás das outras e libera a memória ao fechar.",
+            "ru": "Полоски музыки движутся плавно, музыка видна с первого запуска, а окно Puhu отдыхает за другими окнами и освобождает память при закрытии.",
+            "id": "Bilah musik bergerak mulus, musik tampil sejak pertama dibuka, dan jendela Puhu beristirahat di balik jendela lain serta melepas memorinya saat ditutup.",
+            "de": "Die Musikbalken laufen flüssig, Musik erscheint ab dem ersten Start, und Puhus Fenster ruht hinter anderen und gibt beim Schließen seinen Speicher frei.",
+            "tr": "Müzik çubukları akıcı, müzik ilk açılıştan görünür; Puhu penceresi arkadayken dinlenir, kapatınca belleğini bırakır.",
+            "ko": "음악 막대가 부드럽게 움직이고, 처음 실행부터 음악이 보이며, Puhu 창은 뒤에 있을 땐 쉬고 닫으면 메모리를 비워요.",
+            "ja": "音楽のバーがなめらかに動き、初回起動から音楽が表示されます。Puhu のウィンドウは背後では休み、閉じるとメモリを解放します。"
+          }
+        }
+      ]
+    },
+    {
       "version": "0.6.0",
       "items": [
         {

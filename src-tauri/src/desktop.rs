@@ -32,8 +32,11 @@ pub const LABEL: &str = "desktop";
 pub const SIZE: f64 = 120.0;
 /// Kept between him and the edges of the work area.
 const MARGIN: f64 = 24.0;
-/// To and from the island (0.45 s, ease in-out).
+/// To and from the island (0.45 s, ease in-out; desktop-logic.ts FLIGHT_MS).
 const FLIGHT_MS: u64 = 450;
+/// How far a flight to or from the island bows up from the straight line, as a part
+/// of its length: he rises and glides in rather than sliding along a ruler.
+const FLIGHT_BOW: f64 = 0.15;
 /// Settling into his spot after a drop (0.25 s, with a little overshoot).
 const SNAP_MS: u64 = 250;
 const TICK_MS: u64 = 16;
@@ -126,6 +129,33 @@ pub mod logic {
         clamp_origin(origin, size * d.scale, d.work, margin * d.scale)
     }
 
+    /// Perched, his feet are this far down from the window's top (logical px): the bottom
+    /// of his body as the page draws him (desktop/main.ts), and his toes.
+    pub const PERCH_FEET: f64 = 90.0;
+    /// Let go this close above the taskbar's edge, or over the taskbar, he perches on it.
+    pub const PERCH_SNAP: f64 = 56.0;
+
+    /// The window's top when he perches on `d`'s taskbar, his feet on the edge of the
+    /// work area. None with no taskbar below it (an auto-hidden one takes no work area).
+    pub fn perch_top(d: &Display) -> Option<f64> {
+        let edge = d.work.y + d.work.h;
+        (d.frame.y + d.frame.h - edge >= 8.0 * d.scale).then(|| edge - PERCH_FEET * d.scale)
+    }
+
+    /// `settle`, or perched on the taskbar when let go near its edge or over it.
+    pub fn settle_or_perch(origin: (f64, f64), displays: &[Display], size: f64, margin: f64) -> ((f64, f64), bool) {
+        let spot = settle(origin, displays, size, margin);
+        let Some(first) = displays.first() else { return (spot, false) };
+        let half = size * first.scale / 2.0;
+        let Some(d) = display_near((origin.0 + half, origin.1 + half), displays) else {
+            return (spot, false);
+        };
+        match perch_top(&d) {
+            Some(top) if origin.1 >= top - PERCH_SNAP * d.scale => ((spot.0, top), true),
+            _ => (spot, false),
+        }
+    }
+
     /// A spot saved at an earlier launch, checked against the displays
     /// connected now: `None` when none of them holds its centre any more (the
     /// monitor was unplugged) — he then stays in the island. A spot that is
@@ -142,6 +172,18 @@ pub mod logic {
             d.frame
                 .contains(center)
                 .then(|| clamp_origin(spot, s, d.work, margin * d.scale))
+        })
+    }
+
+    /// `restore_spot` for a perch: on the taskbar's edge as it is now, or, the taskbar
+    /// gone or hidden, inside the work area like any spot (false).
+    pub fn restore_perch(spot: (f64, f64), displays: &[Display], size: f64, margin: f64) -> Option<((f64, f64), bool)> {
+        let restored = restore_spot(spot, displays, size, margin)?;
+        let s = size * displays.first().map_or(1.0, |d| d.scale);
+        let d = display_near((restored.0 + s / 2.0, restored.1 + s / 2.0), displays)?;
+        Some(match perch_top(&d) {
+            Some(top) => ((restored.0, top), true),
+            None => (restored, false),
         })
     }
 
@@ -186,6 +228,23 @@ pub mod logic {
     pub fn lerp(a: (f64, f64), b: (f64, f64), t: f64) -> (f64, f64) {
         (a.0 + (b.0 - a.0) * t, a.1 + (b.1 - a.1) * t)
     }
+
+    /// From `a` to `b` at `t`, bowed up the screen by `bow` of the length at the middle
+    /// (y is down). A flight longer than 1000 px bows no more than one of 1000.
+    pub fn arc(a: (f64, f64), b: (f64, f64), t: f64, bow: f64) -> (f64, f64) {
+        let (x, y) = lerp(a, b, t);
+        let (dx, dy) = (b.0 - a.0, b.1 - a.1);
+        let len = (dx * dx + dy * dy).sqrt();
+        if len < 1.0 {
+            return (x, y);
+        }
+        let (mut nx, mut ny) = (-dy / len, dx / len);
+        if ny > 0.0 {
+            (nx, ny) = (-nx, -ny);
+        }
+        let off = (std::f64::consts::PI * t).sin() * bow * len.min(1000.0);
+        (x + nx * off, y + ny * off)
+    }
 }
 
 use logic::{Display, Rect};
@@ -214,6 +273,8 @@ struct Inner {
     shown: bool,
     /// Sitting on the desktop, taking pokes (not flying, not carried).
     landed: bool,
+    /// His spot is on the taskbar's edge.
+    perched: bool,
     asleep: bool,
     carry: Option<Carry>,
     /// Layer mode: the surface covers the display while it is dragged.
@@ -340,6 +401,8 @@ fn create_window(app: &AppHandle, _mode: DesktopMode) -> Option<WebviewWindow> {
             if PARK {
                 let _ = win.set_position(PhysicalPosition::new(PARKED.0 as i32, PARKED.1 as i32));
             }
+            // Until he first comes out, the window keeps as little memory as it can.
+            platform::set_memory_low(&win, true);
             Some(win)
         }
         Err(err) => {
@@ -459,6 +522,7 @@ fn show(app: &AppHandle, d: &Desktop, at: (f64, f64)) {
             let _ = win.show();
         }
         let _ = win.set_always_on_top(true);
+        platform::set_memory_low(&win, false);
     }
     refresh(app, d);
     // The page draws only while he is on screen.
@@ -478,6 +542,9 @@ fn hide(app: &AppHandle, d: &Desktop) {
         place(app, d, PARKED);
     } else if let Some(win) = window(app) {
         let _ = win.hide();
+    }
+    if let Some(win) = window(app) {
+        platform::set_memory_low(&win, true);
     }
     let _ = app.emit_to(LABEL, "desktop-visible", false);
 }
@@ -551,21 +618,26 @@ fn refresh(app: &AppHandle, d: &Desktop) {
 
 /// Moves him from where he is to `to`, then lands him. False when another
 /// flight took over before the end.
-async fn fly(app: &AppHandle, d: &Desktop, to: (f64, f64), ms: u64, ease: fn(f64) -> f64) -> bool {
+async fn fly(app: &AppHandle, d: &Desktop, to: (f64, f64), ms: u64, ease: fn(f64) -> f64, bow: f64) -> bool {
     let token = d.flight.fetch_add(1, Ordering::SeqCst) + 1;
     let from = d.inner.lock().unwrap().pos;
     let (tx, rx) = tokio::sync::oneshot::channel();
     let app2 = app.clone();
     std::thread::spawn(move || {
         let d = app2.state::<Arc<Desktop>>();
-        let steps = (ms / TICK_MS).max(1);
-        for k in 1..=steps {
+        // By the clock, not by steps: a slow step must not stretch the flight, which the
+        // page draws to the same 0.45 s (shrinking into the island as he gets there).
+        let start = std::time::Instant::now();
+        loop {
             if d.flight.load(Ordering::SeqCst) != token {
                 let _ = tx.send(false);
                 return;
             }
-            let t = k as f64 / steps as f64;
-            place(&app2, &d, logic::lerp(from, to, ease(t)));
+            let t = (start.elapsed().as_secs_f64() * 1000.0 / ms.max(1) as f64).min(1.0);
+            place(&app2, &d, logic::arc(from, to, ease(t), bow));
+            if t >= 1.0 {
+                break;
+            }
             std::thread::sleep(Duration::from_millis(TICK_MS));
         }
         let _ = tx.send(d.flight.load(Ordering::SeqCst) == token);
@@ -586,29 +658,43 @@ fn remember(app: &AppHandle, change: impl FnOnce(&mut settings::DesktopPuhuPref)
     }
 }
 
-fn remember_spot(app: &AppHandle, d: &Desktop, pos: (f64, f64), on_desktop: bool) {
+fn remember_spot(app: &AppHandle, d: &Desktop, pos: (f64, f64), on_desktop: bool, perched: bool) {
     let space = d.mode.space().to_string();
     remember(app, |p| {
         p.on_desktop = on_desktop;
-        p.spot = Some(DesktopSpot { x: pos.0, y: pos.1, space });
+        p.spot = Some(DesktopSpot { x: pos.0, y: pos.1, space, perched });
     });
+}
+
+/// Whether he stands on the taskbar now: the page gives him feet and lets him walk.
+fn set_perched(app: &AppHandle, d: &Desktop, perched: bool) {
+    d.inner.lock().unwrap().perched = perched;
+    let _ = app.emit_to(LABEL, "desktop-perched", perched);
 }
 
 /// Where he lands when he flies out, or `None` when his spot is on a display
 /// that is no longer connected — unless `anywhere`, the user sending him out
 /// with the desktop shortcut: then the first-visit corner.
-fn target_spot(app: &AppHandle, d: &Desktop, anywhere: bool) -> Option<(f64, f64)> {
+fn target_spot(app: &AppHandle, d: &Desktop, anywhere: bool) -> Option<((f64, f64), bool)> {
     let all = displays(app, d);
     let saved = app.try_state::<crate::Shared>().and_then(|s| s.settings.lock().unwrap().desktop_puhu.spot.clone());
-    // A fresh start in the corner of the island's display.
+    // A fresh start in the corner of the island's display, on the taskbar if there is one.
     let corner = || {
         let (cx, top, _) = island_anchor(app, d)?;
         let home = logic::display_near((cx, top + 1.0), &all)?;
-        Some(logic::default_spot(&home, SIZE, MARGIN))
+        let spot = logic::default_spot(&home, SIZE, MARGIN);
+        Some(match logic::perch_top(&home) {
+            Some(top) => ((spot.0, top), true),
+            None => (spot, false),
+        })
     };
     match saved {
         Some(spot) if spot.space == d.mode.space() => {
-            let restored = logic::restore_spot((spot.x, spot.y), &all, SIZE, MARGIN);
+            let restored = if spot.perched {
+                logic::restore_perch((spot.x, spot.y), &all, SIZE, MARGIN)
+            } else {
+                logic::restore_spot((spot.x, spot.y), &all, SIZE, MARGIN).map(|p| (p, false))
+            };
             if anywhere { restored.or_else(corner) } else { restored }
         }
         // Never placed, or placed under another kind of session.
@@ -638,12 +724,13 @@ async fn finish_drop(app: &AppHandle, d: &Desktop, pos: (f64, f64), from: Source
             refresh(app, d);
         }
     } else {
-        let spot = logic::settle(pos, &displays(app, d), SIZE, MARGIN);
+        let (spot, perched) = logic::settle_or_perch(pos, &displays(app, d), SIZE, MARGIN);
         refresh(app, d);
         if spot != pos {
-            fly(app, d, spot, SNAP_MS, logic::ease_out_back).await;
+            fly(app, d, spot, SNAP_MS, logic::ease_out_back, 0.0).await;
         }
-        remember_spot(app, d, spot, true);
+        set_perched(app, d, perched);
+        remember_spot(app, d, spot, true, perched);
     }
     let _ = app.emit_to(island::WINDOW_LABEL, "desktop-puhu-dropped", Dropped { from, home });
 }
@@ -688,6 +775,12 @@ fn spawn_poll(app: AppHandle, d: Arc<Desktop>) {
             let accept = logic::is_over_body(local, SIZE);
             {
                 let mut i = d.inner.lock().unwrap();
+                // He fell asleep while this tick slept: the whole window takes the mouse now
+                // (refresh), to be woken by it. Setting the hit test here made him
+                // click-through, and asleep nothing could wake him or send him home.
+                if i.asleep {
+                    continue;
+                }
                 if i.ignoring != Some(!accept) {
                     i.ignoring = Some(!accept);
                     let _ = win.set_ignore_cursor_events(!accept);
@@ -841,7 +934,7 @@ pub async fn desktop_puhu_fly_out(app: AppHandle, anywhere: Option<bool>) -> boo
         return false;
     }
     refresh_layer_display(&app, &d);
-    let Some(target) = target_spot(&app, &d, anywhere.unwrap_or(false)) else {
+    let Some((target, perched)) = target_spot(&app, &d, anywhere.unwrap_or(false)) else {
         crate::log::line("desktop Puhu: his spot is on a display that is gone — he stays home");
         remember(&app, |p| p.on_desktop = false);
         return false;
@@ -856,12 +949,39 @@ pub async fn desktop_puhu_fly_out(app: AppHandle, anywhere: Option<bool>) -> boo
     }
     show(&app, &d, start);
     let _ = app.emit_to(LABEL, "desktop-flight", "out");
-    if !fly(&app, &d, target, FLIGHT_MS, logic::ease_in_out).await {
+    if !fly(&app, &d, target, FLIGHT_MS, logic::ease_in_out, FLIGHT_BOW).await {
+        crate::log::line("desktop Puhu: the flight out was taken over");
         return false;
     }
     d.inner.lock().unwrap().landed = true;
+    set_perched(&app, &d, perched);
     refresh(&app, &d);
-    remember_spot(&app, &d, target, true);
+    remember_spot(&app, &d, target, true, perched);
+    true
+}
+
+/// A few steps along the taskbar's edge, `dx` logical pixels (kept inside the work area)
+/// over `ms`. False when he is not perched and settled there, or a drag took over.
+#[tauri::command]
+pub async fn desktop_puhu_walk(app: AppHandle, dx: f64, ms: u64) -> bool {
+    let d = app.state::<Arc<Desktop>>().inner().clone();
+    let pos = {
+        let i = d.inner.lock().unwrap();
+        if !(i.shown && i.landed && i.perched && i.carry.is_none()) {
+            return false;
+        }
+        i.pos
+    };
+    let s = side(&app, &d);
+    let Some(disp) = logic::display_near((pos.0 + s / 2.0, pos.1 + s / 2.0), &displays(&app, &d)) else {
+        return false;
+    };
+    let m = MARGIN * disp.scale;
+    let x = (pos.0 + dx * disp.scale).max(disp.work.x + m).min(disp.work.x + disp.work.w - s - m);
+    if (x - pos.0).abs() < 1.0 || !fly(&app, &d, (x, pos.1), ms.clamp(200, 4000), logic::ease_in_out, 0.0).await {
+        return false;
+    }
+    remember_spot(&app, &d, (x, pos.1), true, true);
     true
 }
 
@@ -872,11 +992,13 @@ pub async fn desktop_puhu_fly_out(app: AppHandle, anywhere: Option<bool>) -> boo
 pub async fn desktop_puhu_fly_home(app: AppHandle, forget: bool) -> bool {
     let d = app.state::<Arc<Desktop>>().inner().clone();
     if !d.inner.lock().unwrap().shown {
+        crate::log::line(format!("desktop Puhu: home asked while not shown (forget {forget})"));
         if forget {
             remember(&app, |p| p.on_desktop = false);
         }
         return true;
     }
+    crate::log::line(format!("desktop Puhu: flying home (forget {forget})"));
     {
         let mut i = d.inner.lock().unwrap();
         i.landed = false;
@@ -888,7 +1010,7 @@ pub async fn desktop_puhu_fly_home(app: AppHandle, forget: bool) -> bool {
     let done = match island_anchor(&app, &d) {
         Some((cx, top, scale)) => {
             let to = logic::island_spot(cx, top, SIZE, scale);
-            fly(&app, &d, to, FLIGHT_MS, logic::ease_in_out).await
+            fly(&app, &d, to, FLIGHT_MS, logic::ease_in_out, FLIGHT_BOW).await
         }
         None => true,
     };
@@ -911,6 +1033,7 @@ pub fn desktop_puhu_set_asleep(app: AppHandle, desktop: State<Arc<Desktop>>, asl
         changed
     };
     if changed {
+        crate::log::line(format!("desktop Puhu: {}", if asleep { "asleep" } else { "awake" }));
         refresh(&app, &desktop);
     }
 }
@@ -930,6 +1053,40 @@ mod tests {
         let diag = r / 2f64.sqrt() - 0.5;
         assert!(super::logic::is_over_body((60.0 + diag, 60.0 + diag), s), "diagonal inside must hit");
         assert!(super::logic::is_over_body((60.0 - diag, 60.0 + diag), s), "every quadrant");
+    }
+
+    #[test]
+    fn a_flight_bows_up_and_ends_where_it_should() {
+        let (a, b) = ((1500.0, 900.0), (900.0, 0.0));
+        let near = |p: (f64, f64), q: (f64, f64)| (p.0 - q.0).abs() < 1e-9 && (p.1 - q.1).abs() < 1e-9;
+        assert!(near(arc(a, b, 0.0, 0.15), a));
+        assert!(near(arc(a, b, 1.0, 0.15), b));
+        let mid = arc(a, b, 0.5, 0.15);
+        assert!(mid.1 < lerp(a, b, 0.5).1, "up the screen");
+        // Out of the island the same way round.
+        assert!(arc(b, a, 0.5, 0.15).1 < lerp(b, a, 0.5).1);
+        assert!(near(arc(a, b, 0.5, 0.0), lerp(a, b, 0.5)));
+    }
+
+    #[test]
+    fn let_go_near_the_taskbar_he_perches_on_its_edge() {
+        // 1920x1080 with a 48 px taskbar at the bottom.
+        let frame = Rect { x: 0.0, y: 0.0, w: 1920.0, h: 1080.0 };
+        let d = Display { frame, work: Rect { h: 1032.0, ..frame }, scale: 1.0 };
+        assert_eq!(perch_top(&d), Some(1032.0 - PERCH_FEET));
+        // Over the taskbar, and a little above its edge: perched, x kept.
+        assert_eq!(settle_or_perch((500.0, 1000.0), &[d], 120.0, 24.0), ((500.0, 942.0), true));
+        assert_eq!(settle_or_perch((500.0, 900.0), &[d], 120.0, 24.0), ((500.0, 942.0), true));
+        // Higher up: an ordinary spot.
+        assert_eq!(settle_or_perch((500.0, 600.0), &[d], 120.0, 24.0), ((500.0, 600.0), false));
+        // An auto-hidden taskbar takes no work area: nothing to perch on.
+        let hidden = Display { frame, work: frame, scale: 1.0 };
+        assert_eq!(perch_top(&hidden), None);
+        assert!(!settle_or_perch((500.0, 1000.0), &[hidden], 120.0, 24.0).1);
+        // At the next launch the taskbar grew: he is on its new edge.
+        let taller = Display { frame, work: Rect { h: 1000.0, ..frame }, scale: 1.0 };
+        assert_eq!(restore_perch((500.0, 942.0), &[taller], 120.0, 24.0), Some(((500.0, 1000.0 - PERCH_FEET), true)));
+        assert_eq!(restore_perch((500.0, 942.0), &[hidden], 120.0, 24.0).map(|r| r.1), Some(false));
     }
 
     #[test]

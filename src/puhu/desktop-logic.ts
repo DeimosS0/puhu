@@ -30,8 +30,12 @@ export const DESKTOP_EVENTS = {
   dizzy: "desktop-puhu-dizzy",
   /** Rust → island: a drag ended, `{ from: "island" | "desktop", home }`. */
   dropped: "desktop-puhu-dropped",
+  /** island → desktop window, before each flight: where he sits in the island (`Dock`). */
+  dock: "desktop-puhu-dock",
   /** Rust → desktop window */
   cursor: "desktop-cursor",
+  /** He stands on the taskbar's edge, or not. */
+  perched: "desktop-perched",
   visible: "desktop-visible",
   flight: "desktop-flight",
 } as const;
@@ -46,6 +50,23 @@ export const SLEEP_TIMEOUT = 120;
 export const SLEEP_MOUSE_DISTANCE = 150;
 /** Clickable body radius, as a fraction of the window side. */
 export const BODY_RADIUS_FRACTION = 0.24;
+
+/** A flight to or from the island (desktop.rs FLIGHT_MS). */
+export const FLIGHT_MS = 450;
+/** At the end of a flight home, the island's Puhu fades in this long under the desktop's. */
+export const HANDOFF_MS = 60;
+
+/**
+ * Where Puhu sits in the island, so a flight starts or ends right there and at his
+ * size there: `dx` across from the middle of the island, `cy` down from the top of
+ * the screen's island, `d` the width of his body (0 when the island shows him not).
+ * CSS pixels.
+ */
+export interface Dock {
+  dx: number;
+  cy: number;
+  d: number;
+}
 
 /** Surprised, then off to the island (0.45 s). */
 export const RETRACT_DELAY_MS = 450;

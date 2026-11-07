@@ -17,8 +17,11 @@ import { State } from "../core/state";
 import { HOST_OS } from "../core/pills";
 import { NOWPLAYING_ID, NowPlaying, SPOTIFY_ID, Spotify, currentArtwork, islandDances, type Player } from "../core/spotify";
 import { songs } from "./spotify";
-import { BotEngine, hexToRGB } from "../puhu/engine";
+import { BotEngine, hexToRGB, type Activity } from "../puhu/engine";
+import { PUHU_COLORS, puhuColor } from "../puhu/puhu";
+import { SOON_MIN, dress, nextRain, rainLaterToday, rainSoon, weatherIcon, type Weather } from "../core/weather";
 import { MusicPulse } from "../core/beat";
+import { Pace } from "../core/pace";
 import { CoverColor } from "../core/cover-color";
 import { POMODORO_ID, Pomodoro, formatRemaining, type PomodoroPhase } from "../core/pomodoro";
 import { FocusIntro } from "./focus-intro";
@@ -46,7 +49,7 @@ import { refreshHookPills } from "./integrations";
 import { restoreAlertFocus } from "./hooks";
 import { DesktopLink } from "./desktop";
 import type { ViewCommand } from "./shortcuts";
-import { DRAG_THRESHOLD } from "../puhu/desktop-logic";
+import { DRAG_THRESHOLD, type Dock } from "../puhu/desktop-logic";
 import { Today } from "../views/today";
 import { dayKey } from "../core/today";
 import { Updates } from "./update";
@@ -63,8 +66,10 @@ const BAR_CONTOURS = [
   [0.45, 0.9, 0.6, 0.85, 1, 0.5],
   [0.6, 1, 0.75, 0.55, 0.8, 0.4],
 ] as const;
-/** Folded, the waves are all that moves: 12 frames a second still read as a wave, and each frame costs (the whole window is composited again). */
-const CLOSED_MUSIC_FRAME_MS = 1000 / 12;
+/** Folded, the waves are all that moves. 12 frames a second read as a stutter; 30, a steady
+ *  number of refreshes apart (core/pace.ts), flow, for ~6 % of a core more (measured: GPU
+ *  process and the island's renderer together). */
+const CLOSED_MUSIC_FRAME_MS = 1000 / 30;
 /** How long the volume indicator stays after the last change, seconds. */
 const VOLUME_SECONDS = 1.6;
 /** A new song's moment in the island. */
@@ -188,6 +193,21 @@ const DROP_BEAD_W = 46;
 const DROP_BEAD_MS = 130;
 /** Narrower than this, a drop shows nothing of what it holds. */
 const DROP_NARROW_W = 170;
+/** The weather's notes (core/weather.ts): their colour, how long they stay. */
+const WEATHER_COLOR = "#7cc4ff";
+const WEATHER_SECONDS = 4;
+/** The day's weather, once a day at the first look. */
+const WEATHER_MORNING_KEY = "puhu.weatherMorning";
+const WEATHER_ICONS = {
+  umbrella: "M12 3.5a8.5 8.5 0 0 0-8.5 8.5h17A8.5 8.5 0 0 0 12 3.5zM12 12v6.2a2 2 0 0 1-4 0",
+  snow: "M12 3v18M4.2 7.5l15.6 9M4.2 16.5l15.6-9",
+  sun: "M12 7.5a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9zM12 2.5v2M12 19.5v2M4.6 4.6 6 6M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4",
+  moon: "M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z",
+  cloud: "M7 18.5h10a4 4 0 0 0 .6-7.95A5.5 5.5 0 0 0 7.1 9.6 4.5 4.5 0 0 0 7 18.5z",
+} as const;
+/** On the hour, folded: a little door opens and Puhu looks out by the hour (no sound). */
+const HOUR_SECONDS = 2.8;
+const HOUR_COLOR = "#e0a96d";
 /** The evening ember's word: once a day, from the reminder's time, while the streak waits. */
 const EMBER_KEY = "puhu.emberTold";
 const CAPS_ICON = "M12 4 4.5 11.5H8.5V16h7v-4.5h4zM8.5 19.5h7";
@@ -210,6 +230,42 @@ const CAMERA_ICON = "M4.5 6.5h9a2 2 0 0 1 2 2v1.6l3.6-2.4c.7-.5 1.4 0 1.4.8v7c0 
 const HEADPHONES_ICON = "M12 3.5a8.5 8.5 0 0 0-8.5 8.5v5.5a2.5 2.5 0 0 0 2.5 2.5h1a1.5 1.5 0 0 0 1.5-1.5v-4A1.5 1.5 0 0 0 7 13H5.3v-1a6.7 6.7 0 0 1 13.4 0v1H17a1.5 1.5 0 0 0-1.5 1.5v4A1.5 1.5 0 0 0 17 20h1a2.5 2.5 0 0 0 2.5-2.5V12A8.5 8.5 0 0 0 12 3.5z";
 const RING = 2 * Math.PI * 7.2;
 
+/**
+ * The hour's little door (style.css .cuckoo): an arch whose leaf swings open, Puhu's head
+ * coming up in the doorway and bowing twice, silently, then back in and the door shut.
+ */
+function cuckooDoor(): SVGSVGElement {
+  const ns = "http://www.w3.org/2000/svg";
+  const el = <K extends keyof SVGElementTagNameMap>(tag: K, attrs: Record<string, string>) => {
+    const e = document.createElementNS(ns, tag);
+    for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+    return e;
+  };
+  const { body, ink } = PUHU_COLORS[puhuColor()];
+  const fill = `rgb(${body.map((v) => Math.round(v * 255)).join(",")})`;
+  const arch = "M3.5 17V8.5a5.5 5.5 0 0 1 11 0V17z";
+  const root = el("svg", { viewBox: "0 0 18 18", width: "18", height: "18", class: "cuckoo" });
+  const clip = el("clipPath", { id: "cuckoo-doorway" });
+  clip.append(el("path", { d: arch }));
+  // The doorway clips him where it stands; he moves inside it.
+  const doorway = el("g", { "clip-path": "url(#cuckoo-doorway)" });
+  const owl = el("g", { class: "owl" });
+  doorway.append(owl);
+  owl.append(
+    el("path", { d: "M5.6 9.6 6.2 6.6 8 8.4h2l1.8-1.8.6 3z", fill }),
+    el("circle", { cx: "9", cy: "11.6", r: "4.1", fill }),
+    el("circle", { cx: "7.5", cy: "10.9", r: "0.85", fill: ink }),
+    el("circle", { cx: "10.5", cy: "10.9", r: "0.85", fill: ink }),
+  );
+  root.append(
+    clip,
+    doorway,
+    el("path", { class: "leaf", d: arch, fill: "currentColor" }),
+    el("path", { class: "frame", d: "M3.5 17V8.5a5.5 5.5 0 0 1 11 0V17M2 17h14", fill: "none", stroke: "currentColor", "stroke-width": "1.5", "stroke-linecap": "round" }),
+  );
+  return root;
+}
+
 /** `v` CSS pixels, moved to the nearest whole device pixel. */
 function snapPx(v: number): number {
   const dpr = window.devicePixelRatio || 1;
@@ -223,12 +279,12 @@ function replay(el: HTMLElement, cls: string) {
   el.classList.add(cls);
 }
 /** Frame pacing while only Puhu's own loops play (breathing, blinks, mini Puhus):
- *  no faster than a 60 Hz screen, 10 % short. A
+ *  about a 60 Hz screen's (core/pace.ts rounds it to whole refreshes). A
  *  144–240 Hz screen drew the resting island 2–4 times as often for the same motion;
  *  folding, opening and Puhu moving keep the display's rate. */
-const AMBIENT_FRAME_MS = (1000 / 60) * 0.9;
-/** Puhu doing nothing but breathe and blink: no faster than a 30 Hz screen. */
-const RESTING_FRAME_MS = (1000 / 30) * 0.9;
+const AMBIENT_FRAME_MS = 1000 / 60;
+/** Puhu doing nothing but breathe and blink: about a 30 Hz screen's. */
+const RESTING_FRAME_MS = 1000 / 30;
 const UPDATE_BLUE_RGB = hexToRGB(UPDATE_BLUE);
 const CLAUDE_DESKTOP_ID = "agent_claude-desktop";
 /** Extra canvas on each side of Puhu, for the witch hat's brim and the Santa hat's tip. */
@@ -399,6 +455,15 @@ export class Island {
 
   private running = false;
   private lastFrame = 0;
+  /** What the user is busy with, from the program in front (activity.rs). */
+  private activity: Activity | null = null;
+  /** The weather where the user is, when they gave their town (core/weather.ts). */
+  private weather: Weather | null = null;
+  /** The rain already told about (when it starts), and the timer for the next change. */
+  private rainTold = 0;
+  private weatherTimer: number | null = null;
+  /** The paced frames below the display's rate, a steady number of refreshes apart. */
+  private pace = new Pace();
   private dirty = true;
   private canvasPx = 0;
   /** The pixel ratio Puhu's bitmap was sized for: it changes with the monitor. */
@@ -447,11 +512,14 @@ export class Island {
       reveal: () => this.reveal(),
       wardrobeFromDesktop: () => this.wardrobeFromDesktop(),
       dizzyFromDesktop: () => this.handleDizzy(),
+      dock: () => this.desktopDock(),
+      handoff: (landing) => this.desktopHandoff(landing),
     });
     this.build();
     this.wireFsm();
     this.wireInput();
     this.scheduleIdleLife();
+    this.scheduleHour();
     this.engine.onDizzy = () => this.handleDizzy();
     this.greeting.onComplete = () => {
       this.fsm.greetComplete();
@@ -980,6 +1048,31 @@ export class Island {
     else this.setView("wardrobe");
   }
 
+  /** Where his Puhu sits in the island now, for the desktop Puhu's flights. */
+  private desktopDock(): Dock {
+    const shown = State.mode !== "hidden" || (this.closedPuhu && !this.closedWaves);
+    return {
+      dx: this.botCx.target - this.width.target / 2,
+      cy: this.botCy.target,
+      // The canvas is his body's width over 0.6 (updateBotTargets).
+      d: shown ? this.botSize.target * 0.6 : 0,
+    };
+  }
+
+  private handoffTimer: number | null = null;
+
+  /** The desktop Puhu leaves or reaches the island: his island self fades rather than blinks. */
+  private desktopHandoff(landing: boolean) {
+    this.islandEl.classList.add("handoff");
+    if (this.handoffTimer != null) window.clearTimeout(this.handoffTimer);
+    this.handoffTimer = window.setTimeout(() => {
+      this.handoffTimer = null;
+      this.islandEl.classList.remove("handoff");
+    }, 400);
+    if (landing) this.engine.squash();
+    this.ensureRunning();
+  }
+
   /**
    * Right-click on the desktop Puhu: opens the
    * wardrobe from any state, or goes back if it is already open.
@@ -1487,6 +1580,116 @@ export class Island {
     }, 2500 + Math.random() * 3500);
   }
 
+  /** A new reading (weather.rs, once an hour), or none: the town was removed. */
+  private onWeather(w: Weather | null) {
+    this.weather = w;
+    this.planWeather();
+    this.weatherMorning();
+    this.ensureRunning();
+  }
+
+  /**
+   * The rain to come: told once when it is near, and him redrawn with the umbrella when
+   * it starts. One timer at a time, to the next of those moments.
+   */
+  private planWeather() {
+    if (this.weatherTimer != null) window.clearTimeout(this.weatherTimer);
+    this.weatherTimer = null;
+    const now = Date.now();
+    const at = nextRain(this.weather, now);
+    if (at == null) return;
+    const soon = rainSoon(this.weather, now);
+    if (soon != null && Math.abs(at - this.rainTold) > 20 * 60_000) {
+      this.rainTold = at;
+      this.tellWeather(svg(WEATHER_ICONS.umbrella, 16, { stroke: 2 }), t("Rain in about {minutes} min", { minutes: soon }));
+    }
+    const next = soon != null ? at + 1000 : at - SOON_MIN * 60_000;
+    this.weatherTimer = window.setTimeout(() => {
+      this.weatherTimer = null;
+      this.planWeather();
+      this.ensureRunning();
+    }, Math.max(1000, next - now));
+  }
+
+  /** The day's weather, once a day once both the day and a reading are there. */
+  private weatherMorning() {
+    const w = this.weather;
+    if (!w) return;
+    const now = new Date();
+    const today = dayKey(now);
+    let shown: string | null = null;
+    try {
+      shown = localStorage.getItem(WEATHER_MORNING_KEY);
+    } catch {
+      // Said again, at worst.
+    }
+    if (now.getHours() < 5 || shown === today) return;
+    const parts = [`${Math.round(w.high)}° / ${Math.round(w.low)}°`];
+    const later = rainLaterToday(w, now.getTime());
+    if (later != null && dress(w, now.getTime())?.umbrella !== true) {
+      const time = new Date(later).toLocaleTimeString(language() || undefined, { hour: "2-digit", minute: "2-digit" });
+      parts.push(t("Rain from {time}", { time }));
+    }
+    this.tellWeather(svg(WEATHER_ICONS[weatherIcon(w)], 16, { stroke: 2 }), parts.join(" · "), () => {
+      try {
+        localStorage.setItem(WEATHER_MORNING_KEY, today);
+      } catch {
+        // As above.
+      }
+    });
+  }
+
+  /**
+   * A weather note, when the island can say it: not over another note (it waits its
+   * turn), the open island, a game, a full-screen app or a presentation; never paused.
+   */
+  private tellWeather(icon: Element, text: string, told?: () => void, tries = 0) {
+    if (State.paused || State.inGame) return;
+    if (State.mode === "expanded" || this.hudKind) {
+      if (tries < 20) window.setTimeout(() => this.tellWeather(icon, text, told, tries + 1), 3000);
+      return;
+    }
+    void Bridge.presenting().then((busy) => {
+      if (busy || State.mode === "expanded" || this.hudKind) {
+        if (tries < 20) window.setTimeout(() => this.tellWeather(icon, text, told, tries + 1), 3000);
+        return;
+      }
+      told?.();
+      this.showInfo(icon, text, WEATHER_COLOR, WEATHER_SECONDS);
+    });
+  }
+
+  /** Each full hour: one timer an hour, nothing in between. */
+  private scheduleHour() {
+    const now = new Date();
+    const next = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours() + 1, 0, 0, 300);
+    window.setTimeout(() => {
+      this.showHour();
+      this.scheduleHour();
+    }, next.getTime() - now.getTime());
+  }
+
+  /**
+   * The hour, in the closed island only, as it is shown (not hidden away): a little door
+   * opens and Puhu looks out by it. Never in focus, a game, a full-screen app or a
+   * presentation, over another note, while paused or away.
+   */
+  private showHour() {
+    const now = new Date();
+    // Back from sleep long after the hour: that one has passed.
+    if (now.getMinutes() > 0) return;
+    const quiet = () =>
+      State.paused || State.inGame || State.away || State.mode !== "hidden" || this.hudKind != null ||
+      !this.closedShows || this.collapsed || Pomodoro.phase === "focus";
+    if (quiet()) return;
+    void Bridge.presenting().then((busy) => {
+      if (busy || quiet()) return;
+      const hour = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours());
+      const text = hour.toLocaleTimeString(language() || undefined, { hour: "2-digit", minute: "2-digit" });
+      this.showInfo(cuckooDoor(), text, HOUR_COLOR, HOUR_SECONDS);
+    });
+  }
+
   /** Puhu at rest in the compact or open island: one of his small habits every few seconds. */
   private scheduleIdleLife() {
     window.setTimeout(() => {
@@ -1672,6 +1875,14 @@ export class Island {
     });
 
     void onDragDrop((e) => this.onDragDrop(e));
+    void onEvent<Activity | null>("puhu-activity", (a) => {
+      this.activity = a;
+      this.ensureRunning();
+    });
+    void onEvent<Weather | null>("weather", (w) => this.onWeather(w));
+    void Bridge.weatherNow().then((w) => {
+      if (w && !this.weather) this.onWeather(w);
+    });
     // Folded and still, the waves start moving again with the music's first pulse.
     void onEvent("music-pulse", () => {
       if (this.closedWaves) this.ensureRunning();
@@ -1830,8 +2041,9 @@ export class Island {
   }
 
   private frame = (nowMs: number) => {
-    // Folded, frames come 12 a second: a smaller cap ran his springs slow, so a glance
-    // was still under way when the loop slept and finished at the next one, a twitch.
+    // Folded, frames come only a few times a second (on guard, the waves): a smaller cap
+    // ran his springs slow, so a glance was still under way when the loop slept and
+    // finished at the next one, a twitch.
     const dt = Math.min(0.1, (nowMs - this.lastFrame) / 1000);
     this.lastFrame = nowMs;
 
@@ -1905,8 +2117,7 @@ export class Island {
       const pace = State.mode === "hidden"
         ? (this.guarding ? GUARD_FRAME_MS : CLOSED_MUSIC_FRAME_MS)
         : this.engine.dancingLevel > 0.001 ? AMBIENT_FRAME_MS : RESTING_FRAME_MS;
-      const due = this.lastFrame + pace - performance.now();
-      if (ambient && due > 0) window.setTimeout(() => requestAnimationFrame(this.frame), due);
+      if (ambient) this.pace.after(this.lastFrame, pace, this.frame);
       else requestAnimationFrame(this.frame);
     } else {
       this.running = false;
@@ -2028,7 +2239,7 @@ export class Island {
     const beat = MusicPulse.beat();
     const kick = MusicPulse.sure() * Math.exp(-(beat % 1) * 4);
     const contour = BAR_CONTOURS[Math.floor(beat) % BAR_CONTOURS.length];
-    // Their own clock: folded, frames come 12 a second, past the island's 50 ms step.
+    // Their own clock: a frame may come late, past the island's step.
     const nowMs = performance.now();
     const dt = Math.min(0.12, (nowMs - this.barsAt) / 1000);
     this.barsAt = nowMs;
@@ -2050,16 +2261,17 @@ export class Island {
       // Resting low, a slow sway with the loudness, up with the kick and its own band.
       const sway = 0.5 + 0.5 * Math.sin(t * 1.3 + i * 1.1);
       const target = 0.18 + 0.82 * Math.min(1, loud * (0.2 + 0.15 * sway) + 0.55 * kick * contour[i] + 0.6 * lift);
-      // A soft spring: up quickly, back more slowly, a little give; small steps keep it steady at 12 fps.
+      // A soft spring: up quickly, back more slowly, a little give; small steps keep it steady.
       const w = target > this.barLevels[i] ? 14 : 7;
       for (let k = 0; k < steps; k++) {
         this.barVels[i] += (w * w * (target - this.barLevels[i]) - 1.5 * w * this.barVels[i]) * h;
         this.barLevels[i] += this.barVels[i] * h;
       }
       this.barLevels[i] = Math.max(0.12, Math.min(1, this.barLevels[i]));
-      const bh = Math.max(bw, Math.round(this.barLevels[i] * H));
+      // Not rounded to whole pixels: a bar a few pixels high moved by one-pixel steps.
+      const bh = Math.max(bw, this.barLevels[i] * H);
       ctx.beginPath();
-      ctx.roundRect(x, Math.round((H - bh) / 2), bw, bh, bw / 2);
+      ctx.roundRect(x, (H - bh) / 2, bw, bh, bw / 2);
       ctx.fill();
       x += bw + gap;
     }
@@ -2680,6 +2892,8 @@ export class Island {
    * Never over the open island, a full-screen app or a game; a click opens the list.
    */
   morning() {
+    // The day's weather comes after the list's peek, if there is one.
+    window.setTimeout(() => this.weatherMorning(), 700);
     const now = new Date();
     const today = dayKey(now);
     let shown: string | null = null;
@@ -3200,6 +3414,10 @@ export class Island {
     const band = Pomodoro.phase ? hexToRGB(POMODORO_COLOR[Pomodoro.phase]) : trying >= 6 ? hexToRGB(POMODORO_COLOR.focus) : null;
     const phones = this.musicOn || this.gameTimer != null || performance.now() < this.phonesUntil;
     this.engine.setAccessories(phones, band, agentBusy || trying >= 4);
+    // ...and for the weather: an umbrella, a scarf, sunglasses, the moon beside him.
+    this.engine.setWeather(dress(this.weather, Date.now()));
+    // ...and for what the user is busy with: a mug, a beret, a pencil.
+    this.engine.setActivity(this.activity);
     this.engine.hideBadge = State.mode === "hidden";
     // Too small, and too few frames, in the closed island for his tufts to swing after a glance.
     this.engine.softLag = State.mode === "hidden" && !this.guarding ? 0 : 1;

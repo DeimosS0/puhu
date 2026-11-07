@@ -1,5 +1,37 @@
 # Changelog
 
+## 0.6.1
+
+Puhu settles on your desktop and dresses for the day.
+
+- **On the taskbar**: let go near the taskbar, the desktop Puhu perches on its edge (on a
+  first visit too) and keeps to it when the taskbar changes; now and then he walks a few
+  steps along it.
+- **The desktop Puhu lives a little**: a look round, a yawn and a stretch, a shake of the
+  feathers; a fast cursor startles him and a slow stroke over him is petting; carried he
+  beats his wings, let go he lands with a puff of feathers; he nods off before he sleeps,
+  and asleep a move over him wakes him and a double click still sends him home.
+- **Flights**: to and from the island he flies on an arc and shrinks into the island to the
+  place and size of the island's Puhu, who takes over from him without a blink.
+- **The weather** (General → Weather, type your town): an umbrella in the rain, a scarf in
+  the cold, sunglasses in the sun, a small moon on a clear night; rain coming within the
+  hour is told once, and the day's highest and lowest once a day. Only the town's
+  coordinates go to Open-Meteo, once an hour; nothing at all without a town.
+- **What you are busy with**: a mug of coffee while you code, a beret while you draw or
+  design, a pencil while you write. Only the program in front is looked at.
+- **The hour**, without a sound: on the hour a little door opens in the closed island and
+  Puhu bows by the time.
+- **Quiet when you are looking**: a turn that ends in the terminal you are looking at shows
+  no card and plays no sound; Puhu only nods.
+- **Music out of the box**: Now Playing is on in a new install (Spotify, YouTube Music in a
+  browser…). The closed island's bars flow at 30 frames a second, and every paced
+  animation comes a steady number of screen refreshes apart.
+- **Lighter**: Puhu's window rests behind other windows and closes for real, its memory
+  with it; the set-aside dictation pill is no longer made; windows nobody sees keep as
+  little memory as they can.
+- Settings: hiding the island is a switch of its own. In Turkish the version line reads
+  "Kullandığın sürüm".
+
 ## 0.6.0
 
 Puhu's first version of its own.

@@ -1086,11 +1086,35 @@ function generalSections(): HTMLElement[] {
     h("option", { value: "claude", text: t("Claude usage") }),
     h("option", { value: "music", text: t("What's playing") }),
     h("option", { value: "empty", text: t("Nothing, just the island") }),
-    h("option", { value: "hidden", text: t("Hide the island") }),
   );
-  closed.value = closedIsland(settings.closedIsland);
+  // Hiding the island is a switch of its own. It is still kept as the "hidden" style,
+  // so the style it had before is remembered here to come back to.
+  const SHOWN_KEY = "puhu.closedShown";
+  const shownStyle = (): string => {
+    let kept: string | null = null;
+    try {
+      kept = localStorage.getItem(SHOWN_KEY);
+    } catch {
+      // No storage: Puhu.
+    }
+    const style = closedIsland(kept);
+    return style === "hidden" ? "puhu" : style;
+  };
+  const hidden = () => closedIsland(settings.closedIsland) === "hidden";
+  closed.value = hidden() ? shownStyle() : closedIsland(settings.closedIsland);
+  closed.disabled = hidden();
   closed.addEventListener("change", () => {
+    try {
+      localStorage.setItem(SHOWN_KEY, closed.value);
+    } catch {
+      // As above.
+    }
     settings.closedIsland = closed.value;
+    void save();
+  });
+  const hideIsland = toggle(hidden(), (on) => {
+    settings.closedIsland = on ? "hidden" : closed.value;
+    closed.disabled = on;
     void save();
   });
 
@@ -1154,8 +1178,13 @@ function generalSections(): HTMLElement[] {
     ),
     group(t("Closed island"),
       setting(t("Closed island shows"), t("A PC has no notch: once closed, a small island stays at the top of the screen. Hover it to bring Puhu back. Hidden, move the pointer to the very top of the screen."), closed),
+      setting(t("Hide the island"), null, hideIsland),
       setting(t("Music in the closed island"), t("While music plays, the closed island shows its waves in Puhu's place, and each new song opens the island for a moment on its cover."),
         toggle(settings.closedMusic, (v) => { settings.closedMusic = v; void save(); })),
+    ),
+    group(t("Weather"),
+      setting(t("Your town"), t("Puhu dresses for the weather where you are: an umbrella in the rain, a scarf in the cold, sunglasses in the sun, and he tells you when rain is coming. Only the town you type goes to Open-Meteo, once an hour."),
+        townSetting()),
     ),
     group(t("What you copy"),
       setting(t("Show what you copy"), t("Copied text shows in the island for a moment: a link by its site, a colour by its swatch. Passwords and keys show as dots, and what a password manager keeps private is never read."),
@@ -1224,6 +1253,50 @@ function gamesSection(): HTMLElement {
  * system's language when Puhu has it (else English), or one of the ten.
  * Both windows and the tray switch in place, without a restart.
  */
+/** The town for the weather: typed, found with Enter, removed with its button. */
+function townSetting(): HTMLElement {
+  const input = h("input", {
+    type: "text",
+    placeholder: t("Type your town and press Enter"),
+    autocomplete: "off",
+    spellcheck: "false",
+    style: "flex:1 1 auto;min-width:0",
+  }) as HTMLInputElement;
+  input.value = settings.weatherPlace?.name ?? "";
+  const note = h("span", { class: "hint" });
+  const remove = h("button", { class: "danger", text: t("Remove") });
+  const show = () => {
+    remove.style.display = settings.weatherPlace ? "" : "none";
+  };
+  input.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") return;
+    const name = input.value.trim();
+    if (!name) return;
+    note.textContent = "";
+    input.disabled = true;
+    void Bridge.weatherSearch(name, resolveLanguage(settings.language, systemLanguages())).then((place) => {
+      input.disabled = false;
+      if (!place) {
+        note.textContent = t("Town not found");
+        return;
+      }
+      settings.weatherPlace = place;
+      input.value = place.name;
+      void save();
+      show();
+    });
+  });
+  remove.addEventListener("click", () => {
+    settings.weatherPlace = null;
+    input.value = "";
+    note.textContent = "";
+    void save();
+    show();
+  });
+  show();
+  return h("div", { class: "setting-buttons" }, input, remove, note);
+}
+
 function languageSetting(): HTMLElement {
   const select = h("select", {}) as HTMLSelectElement;
   select.append(h("option", { value: "", text: t("System") }));

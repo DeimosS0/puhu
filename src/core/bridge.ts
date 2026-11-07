@@ -9,6 +9,7 @@ import type { Settings } from "./state";
 import type { RecapHistory, RecapPrefs } from "../recap/summary";
 import type { SpotifyState } from "./spotify";
 import type { UpdateStatus } from "./update";
+import type { Weather, WeatherPlace } from "./weather";
 import type { WaIslandView, WaSettingsView, WaTestResult } from "./whatsapp";
 
 export const IS_TAURI =
@@ -250,6 +251,14 @@ export const Bridge = {
   desktopFlyHome: (forget: boolean) => call<boolean>("desktop_puhu_fly_home", { forget }),
   /** Asleep, the cursor poll stops. */
   desktopSetAsleep: (asleep: boolean) => call<void>("desktop_puhu_set_asleep", { asleep }),
+  /** Perched on the taskbar: a few steps along its edge, `dx` logical px over `ms`. False: he did not go. */
+  desktopWalk: (dx: number, ms: number) => call<boolean>("desktop_puhu_walk", { dx, ms: Math.round(ms) }),
+
+  // ── The weather (src-tauri/src/weather.rs) ─────────────────────────────────
+  /** The first town by that name (Open-Meteo), named in `lang`; null when none. */
+  weatherSearch: (name: string, lang: string) => call<WeatherPlace | null>("weather_search", { name, lang }),
+  /** The last reading, for a page that (re)loads; its news come as the `weather` event. */
+  weatherNow: () => call<Weather | null>("weather_now"),
 
   // ── Spotify (src-tauri/src/spotify.rs) ────────────────────────────────────
   /** Reads the player again (the card came on screen) and reports it. */

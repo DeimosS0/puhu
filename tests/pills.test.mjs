@@ -263,6 +263,7 @@ test("an old settings file gets Claude Code as its main pill and keeps its integ
   State.loadIntegrationTasks();
   assert.deepEqual(ids(), [
     "integration_claude", "integration_resend", "integration_n8n", "integration_vercel", "integration_github",
+    "integration_nowplaying",
   ]);
   assert.equal(State.settings.mainPill, "integration_claude");
   assert.equal(State.tasks[0].name, "Claude Code");

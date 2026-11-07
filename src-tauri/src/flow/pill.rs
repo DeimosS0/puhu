@@ -90,9 +90,11 @@ fn page_url(app: &AppHandle) -> WebviewUrl {
 
 /// Creates the pill's window, hidden. Before the island, for WebView2's sake
 /// (see create_settings_window in lib.rs).
-pub fn setup(app: &AppHandle) {
-    let mut mode = platform::desktop_mode();
-    if mode == DesktopMode::Off {
+pub fn setup(app: &AppHandle, wanted: bool) {
+    let mut mode = if wanted { platform::desktop_mode() } else { DesktopMode::Off };
+    if !wanted {
+        crate::log::line("flow pill: not made, Flow and the voice are off");
+    } else if mode == DesktopMode::Off {
         crate::log::line("flow pill: no way to place it on this desktop");
     } else {
         let park = cfg!(windows);
@@ -128,6 +130,8 @@ pub fn setup(app: &AppHandle) {
                 } else if park {
                     let _ = win.set_position(PhysicalPosition::new(PARKED.0, PARKED.1));
                 }
+                // Parked until dictation starts: as little memory as it can.
+                platform::set_memory_low(&win, true);
             }
             Err(err) => {
                 crate::log::line(format!("flow pill window failed: {err}"));
@@ -252,6 +256,7 @@ pub fn update(app: &AppHandle, change: impl FnOnce(&mut PillState)) {
 
 fn show(app: &AppHandle, pill: &Pill, visible: bool) {
     let Some(win) = window(app) else { return };
+    platform::set_memory_low(&win, !visible);
     match pill.mode {
         DesktopMode::Poll => {
             if !visible {

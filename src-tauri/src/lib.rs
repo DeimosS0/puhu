@@ -1,5 +1,6 @@
 // Puhu — app wiring and the commands the island calls.
 
+mod activity;
 mod agent_hooks;
 mod agents;
 mod away;
@@ -51,6 +52,7 @@ mod tray;
 mod update;
 mod voice;
 #[cfg(windows)]
+mod weather;
 mod webview_drop;
 mod whatsapp;
 
@@ -139,6 +141,7 @@ fn save_settings(app: AppHandle, shared: State<Shared>, settings: Settings) {
     }
     integrations::settings_saved(&app, &settings.active_integrations);
     spotify::sync(&app, &settings.active_integrations);
+    weather::sync(&app, settings.weather_place.clone());
     whatsapp::sync(&settings.active_integrations);
     if shortcuts_changed {
         shortcuts::apply(&app, &settings.shortcuts);
@@ -761,27 +764,30 @@ fn shortcuts_suspend(app: AppHandle, shared: State<Shared>, suspended: bool) {
 pub(crate) const BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --autoplay-policy=no-user-gesture-required";
 
 /// In a dev build the pages are served by Vite, so the second window needs the
-/// absolute dev URL; a bundled build resolves it inside the app bundle.
-fn settings_page_url(app: &AppHandle) -> WebviewUrl {
+/// absolute dev URL; a bundled build resolves it inside the app bundle. `page`: the
+/// page it opens on (hub/shell.ts reads `?page=`), for a window made to show one.
+fn settings_page_url(app: &AppHandle, page: Option<&str>) -> WebviewUrl {
+    let query = page.map(|p| format!("?page={p}")).unwrap_or_default();
     #[cfg(dev)]
     if let Some(mut base) = app.config().build.dev_url.clone() {
         base.set_path("/settings.html");
+        base.set_query(page.map(|p| format!("page={p}")).as_deref());
         return WebviewUrl::External(base);
     }
     let _ = app;
-    WebviewUrl::App("settings.html".into())
+    WebviewUrl::App(format!("settings.html{query}").into())
 }
 
 /// The Puhu window (Flow dictation, the Notetaker and every setting of the
 /// island), labelled "settings" since it grew out of the settings window.
 pub const HUB_LABEL: &str = "settings";
 
-/// The Puhu window is created hidden at launch and only ever shown and
-/// hidden afterwards. A WebView2 window created later — on the main thread or
-/// not — silently comes up blank in this app, so the window that works is the
-/// one that exists before the island's webview does.
-fn create_settings_window(app: &AppHandle) {
-    let url = settings_page_url(app);
+/// The Puhu window exists only while it is open: closing it closes its WebView (some
+/// 50 MB), and opening it makes it again, on the main thread. (A window made later
+/// once came up blank: that was its browser arguments differing from the island's,
+/// see BROWSER_ARGS.)
+fn create_settings_window(app: &AppHandle, page: Option<&str>) {
+    let url = settings_page_url(app, page);
     match WebviewWindowBuilder::new(app, HUB_LABEL, url)
         .additional_browser_args(BROWSER_ARGS)
         .title("Puhu")
@@ -795,11 +801,9 @@ fn create_settings_window(app: &AppHandle) {
         Ok(win) => {
             let this = win.clone();
             win.on_window_event(move |event| match event {
-                // Closing it must only hide it, or it could never be reopened.
-                tauri::WindowEvent::CloseRequested { api, .. } => {
-                    api.prevent_close();
-                    let _ = this.hide();
-                    set_hub_shown(&this, false);
+                // Closed, it is gone: the next open makes it again.
+                tauri::WindowEvent::Destroyed => {
+                    HUB_SHOWN.store(false, Ordering::Relaxed);
                 }
                 // Minimised (a 0×0 resize on Windows) or back from it.
                 tauri::WindowEvent::Resized(_) | tauri::WindowEvent::Focused(true) => {
@@ -818,10 +822,13 @@ fn create_settings_window(app: &AppHandle) {
 /// `document.visibilityState` at "visible" for a hidden window, and its
 /// animation loop then kept a core busy with the window closed (#792).
 static HUB_SHOWN: AtomicBool = AtomicBool::new(false);
+/// Puhu's window is being made (show_hub).
+static HUB_MAKING: AtomicBool = AtomicBool::new(false);
 
 fn set_hub_shown(win: &tauri::WebviewWindow, shown: bool) {
     if HUB_SHOWN.swap(shown, Ordering::Relaxed) != shown {
         let _ = win.emit_to(HUB_LABEL, "hub-visible", shown);
+        platform::set_memory_low(win, !shown);
     }
 }
 
@@ -844,13 +851,19 @@ pub fn show_settings_window(app: &AppHandle) {
 /// "settings", "general", "shortcuts"…).
 pub fn show_hub(app: &AppHandle, page: Option<&str>) {
     let Some(win) = app.get_webview_window(HUB_LABEL) else {
-        // Creating it at startup can fail on some machines (WebView2
-        // 0x80070578, #775): try again now, on the main thread, where
-        // window creation can't deadlock a command.
-        log::line("Puhu window missing, creating it again");
+        // Closed (or never made): made now, off the main thread. Building a WebView2
+        // window on it (run_on_main_thread) waited for the very thread it blocked:
+        // the window stayed blank and every command after it hung. From another
+        // thread the builder asks the main thread and waits for it there.
+        // Asked again while it is being made: the first one shows it.
+        if HUB_MAKING.swap(true, Ordering::SeqCst) {
+            return;
+        }
         let handle = app.clone();
-        let _ = app.run_on_main_thread(move || {
-            create_settings_window(&handle);
+        let page = page.map(str::to_string);
+        tauri::async_runtime::spawn(async move {
+            create_settings_window(&handle, page.as_deref());
+            HUB_MAKING.store(false, Ordering::SeqCst);
             if let Some(win) = handle.get_webview_window(HUB_LABEL) {
                 let _ = win.show();
                 let _ = win.set_focus();
@@ -1016,6 +1029,9 @@ pub fn run() {
             desktop::desktop_puhu_drag_end,
             desktop::desktop_puhu_fly_out,
             desktop::desktop_puhu_fly_home,
+            desktop::desktop_puhu_walk,
+            weather::weather_search,
+            weather::weather_now,
             desktop::desktop_puhu_set_asleep,
             sounds::custom_sounds,
             sounds::custom_sound,
@@ -1087,8 +1103,7 @@ pub fn run() {
         .setup(move |app| {
             let handle = app.handle().clone();
             tray::build(&handle)?;
-            // Before the island: see create_settings_window.
-            create_settings_window(&handle);
+            // Puhu's window is made when it is opened (show_hub), at launch too.
             // Same rule for Puhu's desktop window and the dictation pill.
             desktop::setup(&handle);
             flow::setup(&handle);
@@ -1134,10 +1149,12 @@ pub fn run() {
                 platform::keep_on_top(&win);
             }
             game::start(handle.clone());
+            activity::start(handle.clone());
             pipe::start(handle.clone());
             integrations::start(handle.clone());
             mail::start(handle.clone());
             spotify::sync(&handle, &loaded.active_integrations);
+            weather::sync(&handle, loaded.weather_place.clone());
             // WhatsApp (experimental): nothing runs unless it is turned on and its pill is active.
             whatsapp::start(&handle, &loaded.active_integrations);
             shortcuts::apply(&handle, &loaded.shortcuts);

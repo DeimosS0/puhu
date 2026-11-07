@@ -122,6 +122,8 @@ interface HookPayload {
   prompt?: string;
   /** Stop: the turn's final answer (Markdown) — Claude Code's, Hermes's, Codex's. */
   last_assistant_message?: string;
+  /** Stop: the session's terminal or editor is the window in front (pipe.rs). */
+  puhu_watching?: boolean;
   tool_name?: string;
   tool_input?: Record<string, unknown>;
   /** Set by the relay when an edit was too big to forward whole (> 256 KB). */
@@ -506,10 +508,16 @@ function handleHook(island: Island, payload: HookPayload) {
         const t = State.tasks.find((x) => x.id === agentId);
         if (t) t.finalLine = finalText;
       }
-      Sound.play("finish");
-      // A card waiting for an answer is never covered by another alert.
-      if (showsAlert(agentId, focused)) surface("finished", true);
-      else State.setPillBadge(agentId, "finished");
+      if (payload.puhu_watching) {
+        // The user is looking at the session's terminal: no card, no sound, Puhu nods.
+        State.setPillBadge(agentId, "finished");
+        island.emote("happy");
+      } else {
+        Sound.play("finish");
+        // A card waiting for an answer is never covered by another alert.
+        if (showsAlert(agentId, focused)) surface("finished", true);
+        else State.setPillBadge(agentId, "finished");
+      }
       cancelStopTimer(agentId);
       stopTimers.set(
         agentId,

@@ -12,6 +12,7 @@ import type { FileDiff } from "./diff";
 import type { Bindings } from "./shortcuts";
 import { pillColor } from "./pill-colors";
 import { NOWPLAYING_ID, NowPlaying, Spotify, musicPlaying } from "./spotify";
+import type { WeatherPlace } from "./weather";
 
 export type AgentSource = "claudeCode" | "n8n" | "agent";
 export type PillBadge = "approval" | "finished" | "error";
@@ -167,10 +168,12 @@ export interface Settings {
    * else English), or one of src/i18n's ten codes ("fr", "pt-BR", "zh-Hans"…).
    */
   language: string;
+  /** The town Puhu dresses for the weather of (src-tauri/src/weather.rs); null asks nothing. */
+  weatherPlace: WeatherPlace | null;
   /** Puhu on the desktop. Rust owns it: whatever the page sends back is ignored. */
   desktopPuhu?: {
     onDesktop: boolean;
-    spot: { x: number; y: number; space: string } | null;
+    spot: { x: number; y: number; space: string; perched?: boolean } | null;
   };
 }
 
@@ -193,6 +196,7 @@ export const DEFAULT_SETTINGS: Settings = {
   absenceInterval: 180,
   activeIntegrations: [
     "integration_resend", "integration_n8n", "integration_vercel", "integration_github",
+    "integration_nowplaying",
   ],
   mainPill: DEFAULT_MAIN_PILL,
   screen: "primary",
@@ -212,6 +216,7 @@ export const DEFAULT_SETTINGS: Settings = {
   shortcuts: {},
   pillColors: {},
   language: "",
+  weatherPlace: null,
 };
 
 type Listener = () => void;
