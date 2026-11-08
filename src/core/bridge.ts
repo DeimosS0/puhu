@@ -170,6 +170,26 @@ export const Bridge = {
   /** Copies a dropped file into the inbox. */
   ingestFile: (path: string) => callOrThrow<DroppedFile>("ingest_file", { path }),
   forgetDropped: (path: string) => call<void>("forget_dropped", { path }),
+
+  // ── Dropped files made into something else (src-tauri/src/convert.rs) ──────
+  /** Dropped photos, in order, as one PDF beside the first. */
+  convertImagesPdf: (paths: string[]) => callOrThrow<Converted>("convert_images_pdf", { paths }),
+  /** A dropped photo as a smaller JPG, or as a JPG of the same size. */
+  convertImage: (path: string, to: "small" | "jpg") => callOrThrow<Converted>("convert_image", { path, to }),
+  /** A dropped document's bytes, for core/docx.ts. */
+  convertRead: (path: string) => callOrThrow<ArrayBuffer>("convert_read", { path }),
+  /** A document's HTML printed to a PDF beside the dropped file. */
+  convertHtmlPdf: (source: string, html: string) => callOrThrow<Converted>("convert_html_pdf", { source, html }),
+  /** A file made here put on the clipboard as a file, shown in its folder, or opened. */
+  madeCopy: (path: string) => call<boolean>("made_copy", { path }),
+  madeReveal: (path: string) => call<void>("made_reveal", { path }),
+  madeOpen: (path: string) => call<void>("made_open", { path }),
+
+  // ── USB drives (src-tauri/src/usb.rs) ──────────────────────────────────────
+  usbDrives: () => call<UsbDrive[]>("usb_drives"),
+  usbOpen: (letter: string) => call<void>("usb_open", { letter }),
+  /** Ejected safely; rejects with why when something holds a file on it. */
+  usbEject: (letter: string) => callOrThrow<void>("usb_eject", { letter }),
   /** Ask the screen: the screen under the pointer, in the inbox (screen_ask.rs). */
   askScreen: () => callOrThrow<{ name: string; path: string; thumb: string; game: boolean }>("ask_screen"),
   /** "Ask Puhu" on a copied error: the clipboard's text, in the inbox (copied.rs). */
@@ -278,6 +298,8 @@ export const Bridge = {
     call<boolean>("nowplaying_control", { action, value: value ?? null }),
   /** Brings the app that plays forward. */
   nowPlayingOpen: () => call<boolean>("nowplaying_open"),
+  /** The system volume up or down by `steps` of 2 % (src-tauri/src/system_volume.rs). */
+  systemVolumeStep: (steps: number) => call<void>("system_volume_step", { steps }),
   /** Opens one of the images the screenshot preview kept (src-tauri/src/screenshot.rs). */
   openScreenshot: (name: string) => call<void>("open_screenshot", { name }),
   /** The viewer's larger copy of one, as a data URL. */
@@ -467,6 +489,32 @@ export type BridgeEvent =
   | { name: "tray"; payload: string }
   | { name: "hook"; payload: Record<string, unknown> }
   | { name: "screen-changed"; payload: null };
+
+/** A USB drive plugged in (usb.rs Drive). */
+export interface UsbDrive {
+  letter: string;
+  label: string;
+  free: number;
+  total: number;
+}
+
+/** One came, or went (`usb` event). */
+export interface UsbNews {
+  kind: "in" | "out";
+  drive: UsbDrive;
+  ejected: boolean;
+}
+
+/** A file made from a drop (convert.rs Converted). */
+export interface Converted {
+  path: string;
+  name: string;
+  /** Bytes of the new file, and of what it was made from. */
+  size: number;
+  before: number;
+  /** Pages of a PDF; 0 for a picture. */
+  pages: number;
+}
 
 export interface DragDropPayload {
   type: "enter" | "over" | "drop" | "leave";

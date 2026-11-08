@@ -33,6 +33,10 @@ const NOT_GAMES: &[&str] = &[
     "potplayermini64", "wmplayer", "microsoft.media.player", "video.ui", "powerpnt", "ms-teams", "teams", "zoom",
 ];
 
+/// Screenshot tools: their selection layer fills the screen for a moment. Never games,
+/// whatever the list says (Win+Shift+S had joined it as one).
+const SCREEN_TOOLS: &[&str] = &["snippingtool", "screenclippinghost", "sharex", "greenshot", "lightshot", "flameshot"];
+
 static ACTIVE: AtomicBool = AtomicBool::new(false);
 /// Ask the screen called Puhu in from a game: game mode stays off until the island closes.
 static HELD: AtomicBool = AtomicBool::new(false);
@@ -87,7 +91,12 @@ pub fn active() -> bool {
 
 /// Whether `front` is a game, and the entry to add when its app is new to the list.
 pub fn decide(front: &Front, enabled: bool, apps: &BTreeMap<String, GameApp>) -> (bool, Option<GameApp>) {
-    if !enabled || front.id.is_empty() || crate::flow::is_shell(&front.id) || !front.full_screen {
+    if !enabled
+        || front.id.is_empty()
+        || crate::flow::is_shell(&front.id)
+        || SCREEN_TOOLS.contains(&front.id.as_str())
+        || !front.full_screen
+    {
         return (false, None);
     }
     match apps.get(&front.id) {
@@ -319,5 +328,13 @@ mod tests {
         for id in ["explorer", "lockapp", "puhu", ""] {
             assert_eq!(decide(&front(id, true), true, &BTreeMap::new()), (false, None), "{id}");
         }
+    }
+
+    #[test]
+    fn a_screenshot_tool_is_never_a_game_even_listed_on() {
+        let mut apps = BTreeMap::new();
+        apps.insert("snippingtool".to_string(), GameApp { name: "Ekran Alıntısı Aracı Katmanı".into(), on: true });
+        assert_eq!(decide(&front("snippingtool", true), true, &apps), (false, None));
+        assert_eq!(decide(&front("sharex", true), true, &BTreeMap::new()), (false, None));
     }
 }

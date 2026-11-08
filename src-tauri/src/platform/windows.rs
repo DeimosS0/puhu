@@ -126,6 +126,56 @@ pub fn reveal_folder(path: &str) {
     let _ = Command::new("explorer").arg(path).spawn();
 }
 
+/// A file on the clipboard as Explorer puts one there (CF_HDROP, marked a copy, not a
+/// move): Ctrl+V pastes the file itself into a folder, a chat or a mail. `win` owns the
+/// clipboard for the moment it is written (with no owner, Windows refuses the data).
+pub fn copy_file_to_clipboard(win: &WebviewWindow, path: &std::path::Path) -> bool {
+    use std::os::windows::ffi::OsStrExt;
+    use ::windows::Win32::Foundation::{HANDLE, POINT};
+    use ::windows::Win32::System::DataExchange::{
+        CloseClipboard, EmptyClipboard, OpenClipboard, RegisterClipboardFormatW, SetClipboardData,
+    };
+    use ::windows::Win32::System::Memory::{GlobalAlloc, GlobalLock, GlobalUnlock, GMEM_MOVEABLE};
+    use ::windows::Win32::System::Ole::CF_HDROP;
+    use ::windows::Win32::UI::Shell::DROPFILES;
+
+    let Some(hwnd) = hwnd_of(win) else { return false };
+    // The list of paths ends with an empty one.
+    let wide: Vec<u16> = path.as_os_str().encode_wide().chain([0, 0]).collect();
+    let header = std::mem::size_of::<DROPFILES>();
+    unsafe {
+        // Another program may hold the clipboard for a moment.
+        if !(0..5).any(|_| OpenClipboard(Some(hwnd)).is_ok() || { std::thread::sleep(std::time::Duration::from_millis(30)); false }) {
+            return false;
+        }
+        let _ = EmptyClipboard();
+        let written = (|| -> Option<()> {
+            let files = GlobalAlloc(GMEM_MOVEABLE, header + wide.len() * 2).ok()?;
+            let ptr = GlobalLock(files) as *mut u8;
+            if ptr.is_null() {
+                return None;
+            }
+            let head = DROPFILES { pFiles: header as u32, pt: POINT::default(), fNC: false.into(), fWide: true.into() };
+            std::ptr::write_unaligned(ptr as *mut DROPFILES, head);
+            std::ptr::copy_nonoverlapping(wide.as_ptr() as *const u8, ptr.add(header), wide.len() * 2);
+            let _ = GlobalUnlock(files);
+            SetClipboardData(CF_HDROP.0 as u32, Some(HANDLE(files.0))).ok()?;
+            let effect = GlobalAlloc(GMEM_MOVEABLE, 4).ok()?;
+            let ptr = GlobalLock(effect) as *mut u32;
+            if !ptr.is_null() {
+                // DROPEFFECT_COPY
+                *ptr = 1;
+                let _ = GlobalUnlock(effect);
+                let _ = SetClipboardData(RegisterClipboardFormatW(w!("Preferred DropEffect")), Some(HANDLE(effect.0)));
+            }
+            Some(())
+        })()
+        .is_some();
+        let _ = CloseClipboard();
+        written
+    }
+}
+
 /// The file selected in its folder (Explorer wants `/select,"path"` as it is).
 pub fn reveal_file(path: &std::path::Path) {
     let _ = Command::new("explorer").raw_arg(format!("/select,\"{}\"", path.display())).spawn();

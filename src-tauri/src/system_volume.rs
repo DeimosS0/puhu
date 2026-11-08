@@ -11,6 +11,19 @@ pub use imp::start;
 #[cfg(not(windows))]
 pub fn start(_app: &tauri::AppHandle) {}
 
+/// The wheel over the island: the default output's volume up (or down, negative) by
+/// `steps` of 2 %, as the taskbar's slider moves. Turning it up unmutes. The island
+/// hears the change like any other, through the callback.
+#[tauri::command]
+pub async fn system_volume_step(steps: i32) {
+    #[cfg(windows)]
+    {
+        let _ = tauri::async_runtime::spawn_blocking(move || imp::step(steps)).await;
+    }
+    #[cfg(not(windows))]
+    let _ = steps;
+}
+
 #[cfg(windows)]
 mod imp {
     use std::sync::{mpsc, Mutex};
@@ -112,6 +125,24 @@ mod imp {
             .and_then(|v| unsafe { PropVariantToUInt32(&v) }.ok())
             .unwrap_or(0) as i32;
         Some(Output { name: device_name(&friendly), headphones: form == Headphones.0 || form == Headset.0 })
+    }
+
+    pub fn step(steps: i32) {
+        unsafe {
+            let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
+            let Ok(devices) = CoCreateInstance::<_, IMMDeviceEnumerator>(&MMDeviceEnumerator, None, CLSCTX_ALL) else {
+                return;
+            };
+            let Ok(device) = devices.GetDefaultAudioEndpoint(eRender, eConsole) else { return };
+            let Ok(volume) = device.Activate::<IAudioEndpointVolume>(CLSCTX_ALL, None) else { return };
+            let Ok(level) = volume.GetMasterVolumeLevelScalar() else { return };
+            // On the 2 % grid, whatever the level was left at.
+            let next = ((level * 50.0).round() + steps as f32).clamp(0.0, 50.0) / 50.0;
+            if steps > 0 {
+                let _ = volume.SetMute(false, std::ptr::null());
+            }
+            let _ = volume.SetMasterVolumeLevelScalar(next, std::ptr::null());
+        }
     }
 
     pub fn start(app: &AppHandle) {

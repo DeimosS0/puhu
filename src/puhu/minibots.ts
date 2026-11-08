@@ -86,8 +86,12 @@ export function tickMiniBots(dt: number) {
       mb.canvas.width = px;
       mb.canvas.height = px;
     }
+    // Cleared in device pixels: the canvas is a fraction of a CSS pixel short of its
+    // rounded size (13 / 0.6 at 1.5 scale is 32.5 px of 33), and a clear in CSS pixels
+    // left the last column and row behind, drawn over for good (lines round the grid).
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, mb.canvas.width, mb.canvas.height);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, mb.cssSize, mb.cssSize);
     ctx.save();
     mb.engine.applyDance(ctx, mb.cssSize, mb.cssSize);
     mb.engine.draw(ctx, mb.cssSize, mb.cssSize);

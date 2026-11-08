@@ -13,6 +13,17 @@ import type { Bindings } from "./shortcuts";
 import { pillColor } from "./pill-colors";
 import { NOWPLAYING_ID, NowPlaying, Spotify, musicPlaying } from "./spotify";
 import type { WeatherPlace } from "./weather";
+import type { Converted, UsbDrive } from "./bridge";
+import type { Timer } from "./timer";
+
+/** A PDF or a smaller picture being made from a drop (island/convert.ts, views/convert.ts). */
+export interface Converting {
+  kind: "pdf" | "small" | "jpg";
+  /** The pages that fly in while it works: one a picture, none known yet for a document. */
+  pages: number;
+  done: Converted | null;
+  error: string | null;
+}
 
 export type AgentSource = "claudeCode" | "n8n" | "agent";
 export type PillBadge = "approval" | "finished" | "error";
@@ -262,6 +273,13 @@ class AppState {
    * `temporary`: Puhu's own copy for one question, gone when the island closes.
    */
   droppedFile: { name: string; path: string; thumb?: string; temporary?: boolean } | null = null;
+  /** Every file of the last drop, where it was dropped from (what a PDF is made of). */
+  droppedPaths: string[] = [];
+  converting: Converting | null = null;
+  /** The USB drives plugged in (usb.rs), for views/usb.ts and the header's tab. */
+  usbDrives: UsbDrive[] = [];
+  /** The timer whose card is ringing (island/timers.ts). */
+  timerRing: Timer | null = null;
   /** Sent by the chat as soon as it is on screen ("Ask Puhu" on a copied error). */
   pendingAsk: string | null = null;
   noteMessage: string | null = null;

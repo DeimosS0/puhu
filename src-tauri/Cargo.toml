@@ -102,6 +102,12 @@ windows = { version = "0.61", features = [
   # Ask the screen: the monitor under the pointer through Windows Graphics Capture.
   "Graphics",
   "Graphics_Capture",
+  # Files dropped on the island made into a PDF or a smaller picture (convert.rs).
+  "Graphics_Imaging",
+  # USB drives caught and ejected from the island (usb.rs): volumes coming and going, the
+  # disk a letter lives on, the USB device asked to stop.
+  "Win32_Devices_DeviceAndDriverInstallation",
+  "Win32_System_Ioctl",
   "Graphics_DirectX",
   "Graphics_DirectX_Direct3D11",
   "Win32_Graphics_Direct3D",

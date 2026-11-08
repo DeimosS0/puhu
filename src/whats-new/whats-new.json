@@ -2,6 +2,151 @@
   "about": "What's new, shown once in the island after Puhu updates (src/whats-new/). Every release adds its entry here, in the 14 languages: 1 to 4 items, a short title and one line each, an icon from ICON_NAMES in src/whats-new/whats-new.ts.",
   "releases": [
     {
+      "version": "0.6.2",
+      "items": [
+        {
+          "icon": "sparkles",
+          "title": {
+            "en": "Drop it, get a PDF",
+            "zh-Hans": "拖进来，变成 PDF",
+            "hi": "छोड़ें और PDF पाएँ",
+            "es": "Suéltalo y tendrás un PDF",
+            "ar": "أفلِته واحصل على PDF",
+            "fr": "Déposez, c'est un PDF",
+            "bn": "ছেড়ে দাও, PDF পাও",
+            "pt-BR": "Solte e vira PDF",
+            "ru": "Бросьте — получите PDF",
+            "id": "Lepas, jadi PDF",
+            "de": "Ablegen, PDF bekommen",
+            "tr": "Bırak, PDF olsun",
+            "ko": "놓으면 PDF로",
+            "ja": "置くだけで PDF に"
+          },
+          "detail": {
+            "en": "Drop photos or a Word document on the island: Puhu staples them into a PDF, or makes a photo smaller, right on your computer.",
+            "zh-Hans": "把照片或 Word 文档拖到岛上：Puhu 会把它们装订成 PDF，或把照片变小，全部在你的电脑上完成。",
+            "hi": "तस्वीरें या Word दस्तावेज़ द्वीप पर छोड़ें: Puhu उन्हें PDF में जोड़ देता है या तस्वीर छोटी कर देता है, सब आपके कंप्यूटर पर ही।",
+            "es": "Suelta fotos o un documento de Word en la isla: Puhu los grapa en un PDF o hace más pequeña una foto, en tu propio ordenador.",
+            "ar": "أفلِت صورًا أو مستند Word على الجزيرة: يدبّسها Puhu في ملف PDF أو يصغّر الصورة، على حاسوبك نفسه.",
+            "fr": "Déposez des photos ou un document Word sur l'île : Puhu les agrafe en un PDF ou réduit une photo, directement sur votre ordinateur.",
+            "bn": "ছবি বা Word ডকুমেন্ট দ্বীপে ছেড়ে দাও: Puhu সেগুলো স্ট্যাপল করে PDF বানায় বা ছবি ছোট করে, তোমার কম্পিউটারেই।",
+            "pt-BR": "Solte fotos ou um documento do Word na ilha: o Puhu grampeia tudo em um PDF ou diminui uma foto, no seu próprio computador.",
+            "ru": "Бросьте на остров фото или документ Word: Puhu сошьёт их в PDF или уменьшит фото — прямо на вашем компьютере.",
+            "id": "Lepas foto atau dokumen Word di pulau: Puhu menjepretnya jadi PDF atau mengecilkan foto, langsung di komputermu.",
+            "de": "Leg Fotos oder ein Word-Dokument auf der Insel ab: Puhu heftet sie zu einem PDF oder macht ein Foto kleiner, direkt auf deinem Computer.",
+            "tr": "Fotoğrafları ya da bir Word belgesini adaya bırak: Puhu onları zımbalayıp PDF yapar ya da fotoğrafı küçültür, hepsi kendi bilgisayarında.",
+            "ko": "사진이나 Word 문서를 섬에 놓으세요. Puhu가 PDF로 묶거나 사진을 줄여 줘요. 모두 내 컴퓨터에서요.",
+            "ja": "写真や Word 文書をアイランドに置くと、Puhu がホチキスで留めて PDF にしたり、写真を小さくしたりします。すべてお使いのパソコンの中で。"
+          }
+        },
+        {
+          "icon": "clock",
+          "title": {
+            "en": "Pull down for a timer",
+            "zh-Hans": "下拉设个计时器",
+            "hi": "टाइमर के लिए नीचे खींचें",
+            "es": "Tira hacia abajo para un temporizador",
+            "ar": "اسحب للأسفل لمؤقّت",
+            "fr": "Tirez vers le bas pour un minuteur",
+            "bn": "টাইমারের জন্য নিচে টানো",
+            "pt-BR": "Puxe para baixo e ganhe um timer",
+            "ru": "Потяните вниз — будет таймер",
+            "id": "Tarik ke bawah untuk timer",
+            "de": "Runterziehen für einen Timer",
+            "tr": "Aşağı çek, zamanlayıcı kur",
+            "ko": "아래로 당기면 타이머",
+            "ja": "下に引いてタイマー"
+          },
+          "detail": {
+            "en": "Pull the island down and write \"12 min tea\": Puhu holds your tea while it brews and tells you when it is ready.",
+            "zh-Hans": "把岛往下拉，写上“12 min 茶”：茶在泡的时候 Puhu 替你端着，泡好了会告诉你。",
+            "hi": "द्वीप को नीचे खींचें और \"12 min चाय\" लिखें: चाय बनने तक Puhu उसे थामे रहता है और तैयार होने पर बताता है।",
+            "es": "Tira de la isla hacia abajo y escribe \"12 min té\": Puhu sostiene tu té mientras reposa y te avisa cuando está listo.",
+            "ar": "اسحب الجزيرة للأسفل واكتب \"12 min شاي\": يمسك Puhu شايك وهو يُخدَّر ويخبرك حين يجهز.",
+            "fr": "Tirez l'île vers le bas et écrivez « 12 min thé » : Puhu tient votre thé pendant qu'il infuse et vous prévient quand il est prêt.",
+            "bn": "দ্বীপটা নিচে টেনে লেখো \"12 min চা\": চা ভিজতে থাকা পর্যন্ত Puhu সেটা ধরে রাখে, আর তৈরি হলে জানায়।",
+            "pt-BR": "Puxe a ilha para baixo e escreva \"12 min chá\": o Puhu segura seu chá enquanto ele fica pronto e avisa quando estiver.",
+            "ru": "Потяните остров вниз и напишите «12 min чай»: Puhu подержит чай, пока он заваривается, и скажет, когда он готов.",
+            "id": "Tarik pulau ke bawah dan tulis \"12 min teh\": Puhu memegang tehmu selama diseduh dan memberi tahu saat siap.",
+            "de": "Zieh die Insel nach unten und schreib „12 min Tee“: Puhu hält deinen Tee, solange er zieht, und sagt dir, wenn er fertig ist.",
+            "tr": "Adayı aşağı çekip \"12 dk çay\" yaz: çay demlenirken Puhu bardağı tutar, hazır olunca haber verir.",
+            "ko": "섬을 아래로 당겨 \"12 min 차\"라고 쓰세요. 차가 우러나는 동안 Puhu가 들고 있다가 다 되면 알려 줘요.",
+            "ja": "アイランドを下に引いて「12 min お茶」と書くと、お茶が入るまで Puhu が持っていて、できたら知らせます。"
+          }
+        },
+        {
+          "icon": "bolt",
+          "title": {
+            "en": "The island under your hand",
+            "zh-Hans": "岛在你手边",
+            "hi": "द्वीप आपके हाथ में",
+            "es": "La isla a tu alcance",
+            "ar": "الجزيرة طوع يدك",
+            "fr": "L'île sous la main",
+            "bn": "দ্বীপ তোমার হাতের নাগালে",
+            "pt-BR": "A ilha na palma da mão",
+            "ru": "Остров под рукой",
+            "id": "Pulau di ujung jari",
+            "de": "Die Insel unter deiner Hand",
+            "tr": "Ada elinin altında",
+            "ko": "손끝의 섬",
+            "ja": "手もとのアイランド"
+          },
+          "detail": {
+            "en": "Scroll over the island for the volume, scroll sideways (or Shift and scroll) for the next song, middle-click to play or pause.",
+            "zh-Hans": "在岛上滚动调音量，横向滚动（或按住 Shift 滚动）切下一首，中键点击播放或暂停。",
+            "hi": "आवाज़ के लिए द्वीप पर स्क्रॉल करें, अगले गाने के लिए बगल में (या Shift के साथ) स्क्रॉल करें, चलाने या रोकने के लिए बीच वाला बटन दबाएँ।",
+            "es": "Desplaza sobre la isla para el volumen, de lado (o Mayús y rueda) para la siguiente canción, y haz clic con el botón central para reproducir o pausar.",
+            "ar": "مرّر فوق الجزيرة لضبط الصوت، ومرّر جانبيًا (أو Shift مع العجلة) للأغنية التالية، وانقر بالزر الأوسط للتشغيل أو الإيقاف.",
+            "fr": "Faites défiler sur l'île pour le volume, de côté (ou Maj + molette) pour le morceau suivant, et cliquez avec la molette pour lire ou mettre en pause.",
+            "bn": "আওয়াজের জন্য দ্বীপের ওপর স্ক্রল করো, পরের গানের জন্য পাশে (বা Shift দিয়ে) স্ক্রল করো, চালু বা থামাতে মাঝের বোতামে ক্লিক করো।",
+            "pt-BR": "Role sobre a ilha para o volume, role de lado (ou Shift e a roda) para a próxima música e clique com o botão do meio para tocar ou pausar.",
+            "ru": "Прокрутка над островом — громкость, вбок (или Shift и колесо) — следующая песня, средняя кнопка — пуск и пауза.",
+            "id": "Gulir di atas pulau untuk volume, gulir ke samping (atau Shift dan gulir) untuk lagu berikutnya, klik tengah untuk putar atau jeda.",
+            "de": "Scroll über der Insel für die Lautstärke, seitlich (oder Umschalt und Rad) für den nächsten Song, Mittelklick für Abspielen und Pause.",
+            "tr": "Adanın üstünde tekerlekle ses, yana kaydırarak (ya da Shift ile) sonraki şarkı, orta tıkla oynat/duraklat.",
+            "ko": "섬 위에서 스크롤하면 볼륨, 옆으로(또는 Shift와 함께) 스크롤하면 다음 곡, 가운데 버튼은 재생과 일시정지예요.",
+            "ja": "アイランドの上でスクロールすると音量、横に（または Shift を押しながら）スクロールすると次の曲、中クリックで再生・一時停止。"
+          }
+        },
+        {
+          "icon": "shield",
+          "title": {
+            "en": "USB drives, caught",
+            "zh-Hans": "接住你的 U 盘",
+            "hi": "USB ड्राइव, पकड़ ली",
+            "es": "Unidades USB, atrapadas",
+            "ar": "ذاكرات USB في الحفظ",
+            "fr": "Clés USB attrapées",
+            "bn": "USB ড্রাইভ, ধরে ফেলা",
+            "pt-BR": "Pendrives na mão",
+            "ru": "USB-накопители под присмотром",
+            "id": "Flashdisk tertangkap",
+            "de": "USB-Sticks gefangen",
+            "tr": "USB bellekler yakalandı",
+            "ko": "USB 드라이브를 척",
+            "ja": "USB ドライブをキャッチ"
+          },
+          "detail": {
+            "en": "Plug one in and Puhu catches it with the room left on it; eject it safely from the island when you are done.",
+            "zh-Hans": "插上 U 盘，Puhu 会接住它并告诉你剩余空间；用完后可在岛上安全弹出。",
+            "hi": "एक लगाएँ तो Puhu उसे पकड़ लेता है और बची जगह बताता है; काम हो जाने पर द्वीप से ही सुरक्षित रूप से निकालें।",
+            "es": "Conecta una y Puhu la atrapa y te dice cuánto espacio le queda; expúlsala con seguridad desde la isla al terminar.",
+            "ar": "صِل واحدة فيلتقطها Puhu ويخبرك بالمساحة المتبقية؛ وأخرجها بأمان من الجزيرة حين تنتهي.",
+            "fr": "Branchez-en une : Puhu l'attrape et indique la place qui reste ; éjectez-la depuis l'île quand vous avez fini.",
+            "bn": "একটা লাগাও, Puhu সেটা ধরে নেয় আর বাকি জায়গা জানায়; কাজ শেষে দ্বীপ থেকেই নিরাপদে বের করো।",
+            "pt-BR": "Conecte um e o Puhu o pega e mostra o espaço livre; ejete com segurança pela ilha quando terminar.",
+            "ru": "Вставьте накопитель — Puhu поймает его и покажет свободное место; закончив, извлеките его безопасно прямо с острова.",
+            "id": "Colokkan satu dan Puhu menangkapnya beserta sisa ruangnya; keluarkan dengan aman dari pulau setelah selesai.",
+            "de": "Steck einen ein, und Puhu fängt ihn samt freiem Platz; wirf ihn sicher über die Insel aus, wenn du fertig bist.",
+            "tr": "Bir bellek tak, Puhu yakalayıp ne kadar boş yer kaldığını söyler; işin bitince adadan güvenle çıkar.",
+            "ko": "꽂으면 Puhu가 받아서 남은 공간을 알려 줘요. 다 쓰면 섬에서 안전하게 꺼내세요.",
+            "ja": "挿すと Puhu がキャッチして空き容量を伝えます。使い終わったらアイランドから安全に取り外せます。"
+          }
+        }
+      ]
+    },
+    {
       "version": "0.6.1",
       "items": [
         {

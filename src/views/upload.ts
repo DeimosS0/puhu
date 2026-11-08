@@ -1,12 +1,21 @@
 // Drop zone, upload progress and the "what do you want to do with it" card.
 //
-// Sending a file by email is not in the Windows v1, so `choose` offers the one
-// action the spec asks for: ask a question about it.
+// Sending a file by email is not in the Windows v1, so `choose` offers a question about
+// it and, for photos, a Word document or plain text, what they can be made into
+// (island/convert.ts).
 
-import { h, clear } from "./dom";
+import { h, clear, svg } from "./dom";
+import { ICONS } from "./icons";
 import { State } from "../core/state";
+import { offers, type ConvertKind } from "../island/convert";
 import type { ViewActions, ViewHost } from "./views";
 import { N_, t, tl } from "../i18n/i18n";
+
+const MAKE: Record<ConvertKind, string> = {
+  pdf: N_("Make a PDF"),
+  small: N_("Make it smaller"),
+  jpg: N_("Make a JPG"),
+};
 
 /** Dashed rounded rect drawn as SVG so the dashes can march. */
 function dashedFrame(): SVGSVGElement {
@@ -85,39 +94,48 @@ export function buildUploading(): ViewHost {
 
 export function buildChoose(actions: ViewActions): ViewHost {
   const title = h("div", { class: "title" });
-  const sub = h("div", { class: "sub", text: tl("What do you want to do with it?") });
-  const row = h(
-    "div",
-    { class: "actions" },
-    h("button", {
-      class: "btn primary",
-      text: tl("Ask a question"),
-      onclick: () => actions.setView("prompt"),
-    }),
-    h("button", {
-      class: "btn secondary",
-      text: tl("Cancel"),
-      onclick: () => actions.cancelDrop(),
-    }),
-  );
+  const sub = h("div", { class: "sub" });
+  const ask = h("button", { class: "btn primary", text: tl("Ask a question"), onclick: () => actions.setView("prompt") });
+  const cancel = h("button", { class: "btn secondary", text: tl("Cancel"), onclick: () => actions.cancelDrop() });
+  // With something to make, Cancel steps aside to the corner and leaves the row to the actions.
+  const close = h("button", { class: "card-x", title: t("Cancel"), onclick: () => actions.cancelDrop() }, svg(ICONS.xmark, 10));
+  const row = h("div", { class: "actions" }, ask, cancel);
   const el = h(
     "div",
     { class: "view" },
     h(
       "div",
       { class: "card" },
+      close,
       h("div", { class: "stack", style: "padding:0 18px 0 98px" }, title, sub, row),
     ),
   );
+  let shownFor = "";
 
   return {
     el,
     sync() {
+      const paths = State.droppedPaths;
       clear(title);
-      title.append(
-        h("b", { text: State.droppedFile?.name ?? t("file") }),
-        document.createTextNode(t(" is ready.")),
+      if (paths.length > 1) {
+        title.textContent = t("{n} files are ready.", { n: paths.length });
+      } else {
+        title.append(
+          h("b", { text: State.droppedFile?.name ?? t("file") }),
+          document.createTextNode(t(" is ready.")),
+        );
+      }
+      sub.textContent = paths.length > 1 ? t("What do you want to do with them?") : t("What do you want to do with it?");
+      const kinds = offers(paths);
+      const key = `${kinds.join()}|${paths.length}`;
+      if (key === shownFor) return;
+      shownFor = key;
+      const makes = kinds.map((kind, i) =>
+        h("button", { class: `btn ${i === 0 ? "primary" : "secondary"}`, text: tl(MAKE[kind]), onclick: () => actions.convert(kind) }),
       );
+      ask.className = `btn ${makes.length ? "secondary" : "primary"}`;
+      row.replaceChildren(...makes, ask, ...(makes.length ? [] : [cancel]));
+      close.hidden = makes.length === 0;
     },
   };
 }

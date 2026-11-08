@@ -40,16 +40,33 @@ const DROP_MAX_PENDING: usize = 64;
 
 static DROPPED: std::sync::Mutex<Vec<(String, std::time::Instant)>> = std::sync::Mutex::new(Vec::new());
 
+/// The same paths for making them into something else (convert.rs): good for longer, as
+/// the choose card waits, and more than once (a PDF, then a smaller copy).
+const CONVERT_VALID_FOR: Duration = Duration::from_secs(15 * 60);
+static FOR_CONVERT: std::sync::Mutex<Vec<(String, std::time::Instant)>> = std::sync::Mutex::new(Vec::new());
+
 /// Records paths that came from a real drop.
 pub fn allow_dropped<I: IntoIterator<Item = String>>(paths: I) {
     let mut list = DROPPED.lock().unwrap_or_else(|e| e.into_inner());
+    let mut convert = FOR_CONVERT.lock().unwrap_or_else(|e| e.into_inner());
     let now = std::time::Instant::now();
     list.retain(|(_, at)| now.duration_since(*at) < DROP_VALID_FOR);
+    convert.retain(|(_, at)| now.duration_since(*at) < CONVERT_VALID_FOR);
     for p in paths {
-        list.push((p, now));
+        list.push((p.clone(), now));
+        convert.push((p, now));
     }
     let excess = list.len().saturating_sub(DROP_MAX_PENDING);
     list.drain(..excess);
+    let excess = convert.len().saturating_sub(DROP_MAX_PENDING);
+    convert.drain(..excess);
+}
+
+/// True when `path` came from a drop in the last quarter of an hour (it stays good).
+pub fn may_convert(path: &str) -> bool {
+    let list = FOR_CONVERT.lock().unwrap_or_else(|e| e.into_inner());
+    let now = std::time::Instant::now();
+    list.iter().any(|(p, at)| p == path && now.duration_since(*at) < CONVERT_VALID_FOR)
 }
 
 /// True (once) when `path` was delivered by a drop in the last couple of minutes.

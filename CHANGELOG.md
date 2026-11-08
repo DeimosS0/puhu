@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.6.2
+
+Puhu lends a hand: with files, timers, USB drives, and the island itself.
+
+- **Files into PDFs**: drop photos on the island and they become one PDF (a page each, A4,
+  turned the way the camera meant); a Word document or plain text becomes a PDF too, without
+  Word. One photo can also be made smaller to send, or a JPG. All of it on your computer;
+  the new file goes beside the old one, never over it. Puhu stacks the pages and staples
+  them, or wrings a photo out like a sponge; Copy puts the file itself on the clipboard, for
+  Ctrl+V into a chat or a mail.
+- **Timers**: pull the compact island down (or open the timer tab) and write "12 min tea",
+  "egg 7 minutes" or "1 h 20 min". The island counts down, Puhu holds a tulip glass of tea
+  darkening as it brews (a cup of coffee, an egg, an hourglass), and when it is done he
+  holds it up ringing, with OK or five minutes more. Without a length, what you wrote goes
+  on today's list.
+- **The island under your hand**: the wheel over it turns the volume, a sideways swipe (the
+  wheel tilted, or Shift and the wheel) goes to the next song or the one before, the middle
+  button plays and pauses.
+- **USB drives**: one plugged in is caught, with its name and the room left on it; its card
+  opens it or ejects it safely, and says so when a file on it is still open.
+- Fixes: taking a screenshot no longer starts game mode; the mini Puhus of other sessions no
+  longer leave lines round them; Puhu is dressed in the drop scene as he is in the island;
+  his scarf turns with his face.
+
 ## 0.6.1
 
 Puhu settles on your desktop and dresses for the day.

@@ -3,21 +3,30 @@
 // While the sequence engine is active this canvas draws the whole island body:
 // card, dashed drop frame, drop text, progress bar, the choose card, Puhu and the
 // file he catches. The island's own Puhu is hidden for the duration, because this
-// canvas draws its own.
+// canvas draws its own. The choose card's buttons are real ones over it: what they
+// offer depends on the files (a PDF from photos or a document; island/convert.ts).
 
 import { State } from "../core/state";
 import { PUHU_EYE_P, PUHU_EYE_SCALE, PUHU_EYE_SP, PUHU_RX, PUHU_RY, puhuCss, puhuPoint } from "../puhu/puhu";
 import { SCRIPT_FONTS } from "../core/fonts";
-import { N_, isRtl, t } from "../i18n/i18n";
+import { N_, isRtl, t, tl } from "../i18n/i18n";
 import { USC, lerp, progressAt, type UploadEyeShape, type UploadFile, type UploadFrame } from "./sequence";
+import { offers, type ConvertKind } from "../island/convert";
+import { h, svg } from "../views/dom";
+import { ICONS } from "../views/icons";
 
 const FONT = `system-ui, "Segoe UI Variable Text", "Segoe UI", ${SCRIPT_FONTS}, sans-serif`;
 
 /** The card's inner right edge: no text runs past it. */
 const TEXT_RIGHT = USC.CARD_X + USC.CARD_W - 16;
-/** The two choose buttons, as drawn and as hit areas. */
-const ASK_BTN = { x: 114, w: 168 };
-const CANCEL_BTN = { x: 290, w: 120 };
+/** Where the choose card's row of buttons starts. */
+const BUTTONS = { x: 114, y: 113 };
+/** What the dropped files can be made into, as the buttons say it. */
+const MAKE: Record<ConvertKind, string> = {
+  pdf: N_("Make a PDF"),
+  small: N_("Make it smaller"),
+  jpg: N_("Make a JPG"),
+};
 /** Drop-zone chips (English keys, shown with `t()`). */
 const CHIPS = [N_("PDF"), N_("Images"), N_("Code"), N_("Docs")];
 
@@ -100,36 +109,41 @@ export interface UploadCanvasActions {
   ask(): void;
   /** Secondary button. */
   cancel(): void;
+  /** The dropped files made into a PDF, a smaller picture or a JPG. */
+  convert(kind: ConvertKind): void;
+  /** What the island's Puhu wears, drawn on this one at his middle (BotEngine.drawWorn). */
+  dress(ctx: CanvasRenderingContext2D, R: number, turn: number, layer: "behind" | "front", pitch: number): void;
 }
 
 export class UploadCanvas {
-  /** Wrapper holding the canvas and the two invisible choose buttons. */
+  /** Wrapper holding the canvas and the choose card's buttons. */
   readonly el: HTMLElement;
 
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D | null;
   private overlay: HTMLElement;
   private sizedFor = 0;
+  private readonly row: HTMLElement;
+  private readonly ask: HTMLButtonElement;
+  private readonly cancel: HTMLButtonElement;
+  private readonly close: HTMLButtonElement;
+  /** The files the buttons were made for. */
+  private buttonsFor = "";
 
-  constructor(actions: UploadCanvasActions) {
+  constructor(private readonly actions: UploadCanvasActions) {
     this.canvas = document.createElement("canvas");
     this.canvas.id = "upload-canvas";
 
-    // Invisible hit areas at the reference button positions. The labels are
-    // painted on the canvas; these only catch the click.
-    const mk = (x: number, w: number, onclick: () => void) => {
-      const b = document.createElement("button");
-      b.className = "upload-hit";
-      b.style.left = `${x}px`;
-      b.style.top = "113px";
-      b.style.width = `${w}px`;
-      b.style.height = "26px";
-      b.addEventListener("click", onclick);
-      return b;
-    };
+    this.ask = h("button", { class: "btn primary upload-btn", text: tl("Ask a question about it"), onclick: () => actions.ask() });
+    this.cancel = h("button", { class: "btn secondary upload-btn", text: tl("Cancel"), onclick: () => actions.cancel() });
+    // With something to make, Cancel steps aside to the card's corner and leaves the row to it.
+    this.close = h("button", { class: "card-x upload-x", title: tl("Cancel"), onclick: () => actions.cancel() }, svg(ICONS.xmark, 10));
+    this.row = h("div", { class: "upload-row" }, this.ask, this.cancel);
+    this.row.style.left = `${BUTTONS.x}px`;
+    this.row.style.top = `${BUTTONS.y}px`;
     this.overlay = document.createElement("div");
     this.overlay.id = "upload-overlay";
-    this.overlay.append(mk(ASK_BTN.x, ASK_BTN.w, actions.ask), mk(CANCEL_BTN.x, CANCEL_BTN.w, actions.cancel));
+    this.overlay.append(this.row, this.close);
 
     this.el = document.createElement("div");
     this.el.id = "upload-layer";
@@ -155,8 +169,29 @@ export class UploadCanvas {
 
     this.drawScene(ctx, f, wallTime);
 
-    // The buttons only exist once the choose card has faded in.
-    this.overlay.style.display = f.chooseAlpha > 0.5 ? "block" : "none";
+    // The buttons come in with the choose card, and take clicks once it is mostly there.
+    this.overlay.style.display = f.chooseAlpha > 0.01 ? "block" : "none";
+    if (f.chooseAlpha > 0.01) {
+      this.syncButtons();
+      this.overlay.style.opacity = String(f.chooseAlpha);
+      this.overlay.style.transform = `translateY(${(1 - f.chooseAlpha) * 4}px)`;
+      this.overlay.style.pointerEvents = f.chooseAlpha > 0.5 ? "" : "none";
+    }
+  }
+
+  /** The row for the files dropped: what they can be made into first, then the question. */
+  private syncButtons() {
+    const paths = State.droppedPaths;
+    const kinds = offers(paths);
+    const key = `${kinds.join()}|${paths.length}`;
+    if (key === this.buttonsFor) return;
+    this.buttonsFor = key;
+    const makes = kinds.map((kind, i) =>
+      h("button", { class: `btn ${i === 0 ? "primary" : "secondary"} upload-btn`, text: tl(MAKE[kind]), onclick: () => this.actions.convert(kind) }),
+    );
+    this.ask.className = `btn ${makes.length ? "secondary" : "primary"} upload-btn`;
+    this.row.replaceChildren(...makes, this.ask, ...(makes.length ? [] : [this.cancel]));
+    this.close.hidden = makes.length === 0;
   }
 
   // ── Scene ─────────────────────────────────────────────────────────────────
@@ -327,23 +362,16 @@ export class UploadCanvas {
     ctx.globalAlpha = f.chooseAlpha;
     ctx.translate(0, (1 - f.chooseAlpha) * 4);
 
-    const maxW = TEXT_RIGHT - 114;
-    const ready = fitted(ctx, t("{name} is ready.", { name: State.droppedFile?.name ?? t("file") }), maxW, 600, 14);
+    // Clear of the corner's Cancel.
+    const maxW = TEXT_RIGHT - 114 - 30;
+    const many = State.droppedPaths.length > 1;
+    const heading = many
+      ? t("{n} files are ready.", { n: State.droppedPaths.length })
+      : t("{name} is ready.", { name: State.droppedFile?.name ?? t("file") });
+    const ready = fitted(ctx, heading, maxW, 600, 14);
     text(ctx, ready.s, 114, 80, ready.font, "#F5F6F8");
-    const what = fitted(ctx, t("What do you want to do with it?"), maxW, 400, 12.5);
+    const what = fitted(ctx, many ? t("What do you want to do with them?") : t("What do you want to do with it?"), maxW, 400, 12.5);
     text(ctx, what.s, 114, 100, what.font, "#9398A1");
-
-    ctx.fillStyle = "#F5F6F8";
-    rr(ctx, ASK_BTN.x, 113, ASK_BTN.w, 26, 13);
-    ctx.fill();
-    const ask = fitted(ctx, t("Ask a question about it"), ASK_BTN.w - 14, 500, 12.5);
-    text(ctx, ask.s, ASK_BTN.x + ASK_BTN.w / 2, 126, ask.font, "#0B0C0E", "center");
-
-    ctx.fillStyle = "rgba(255,255,255,0.09)";
-    rr(ctx, CANCEL_BTN.x, 113, CANCEL_BTN.w, 26, 13);
-    ctx.fill();
-    const cancel = fitted(ctx, t("Cancel"), CANCEL_BTN.w - 14, 500, 12.5);
-    text(ctx, cancel.s, CANCEL_BTN.x + CANCEL_BTN.w / 2, 126, cancel.font, "#F1F2F4", "center");
     ctx.restore();
   }
 
@@ -379,6 +407,10 @@ export class UploadCanvas {
     place();
     if (!front) for (const sd of [-1, 1]) wing(ctx, sd, R, rx, ang, puhu.wing);
     const turn = f.lookX * 0.4;
+    // Dressed as he is in the island: the scene takes him over and gives him back as he is.
+    ctx.save();
+    this.actions.dress(ctx, R, turn, "behind", f.lookY * 0.35);
+    ctx.restore();
     bodyPath(ctx, R, f.tuft, -f.tilt * 2, turn);
     ctx.fillStyle = puhu.body;
     ctx.fill();
@@ -396,6 +428,9 @@ export class UploadCanvas {
       ctx.restore();
     }
     ctx.restore(); // body clip
+    ctx.save();
+    this.actions.dress(ctx, R, turn, "front", f.lookY * 0.35);
+    ctx.restore();
     ctx.restore(); // transform
 
     if (f.file.held && !carried) drawHeldFile(ctx, f.file, f.tilt);

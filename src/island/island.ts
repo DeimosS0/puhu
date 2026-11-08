@@ -44,6 +44,8 @@ import { claudeCompactPillVisible, closePlanCard } from "../views/usage";
 import { buildHeader, buildViews, type ViewActions, type ViewHost } from "../views/views";
 import { h, svg } from "../views/dom";
 import { ICONS } from "../views/icons";
+import { Gestures } from "./gestures";
+import { convert, forgetConverting, type ConvertKind } from "./convert";
 import { IslandStateMachine } from "./fsm";
 import { refreshHookPills } from "./integrations";
 import { restoreAlertFocus } from "./hooks";
@@ -51,6 +53,10 @@ import { DesktopLink } from "./desktop";
 import type { ViewCommand } from "./shortcuts";
 import { DRAG_THRESHOLD, type Dock } from "../puhu/desktop-logic";
 import { Today } from "../views/today";
+import { Timers, formatLeft, progressOf, type Timer, type TimerKind, type TimerSpec } from "../core/timer";
+import { TimerClock } from "./timers";
+import { USB_ICON, bytes, driveName } from "../views/usb";
+import type { UsbNews } from "../core/bridge";
 import { dayKey } from "../core/today";
 import { Updates } from "./update";
 import { UPDATE_BLUE, showsUpdateHint } from "../whats-new/whats-new";
@@ -90,7 +96,7 @@ const VIEW_MIN_W = 400;
 const VIEW_MIN_H = 176;
 const SAVE_ICON = "M12 3a1 1 0 0 1 1 1v8.6l2.8-2.8a1 1 0 1 1 1.4 1.4l-4.5 4.5a1 1 0 0 1-1.4 0l-4.5-4.5a1 1 0 1 1 1.4-1.4L11 12.6V4a1 1 0 0 1 1-1zM5 15a1 1 0 0 1 1 1v2.5c0 .3.2.5.5.5h11c.3 0 .5-.2.5-.5V16a1 1 0 1 1 2 0v2.5a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 18.5V16a1 1 0 0 1 1-1z";
 /** What may come over a card waiting for its answer: a permission or a question (an agent waits on it), and a file being dropped (its own scene). */
-const OVER_WAITING: ReadonlySet<IslandViewName> = new Set(["approval", "question", "upload", "uploading", "choose"]);
+const OVER_WAITING: ReadonlySet<IslandViewName> = new Set(["approval", "question", "upload", "uploading", "choose", "convert"]);
 /** How much wider the compact island grows for each indicator. */
 const HUD_EXTRA_W = { volume: 44, power: 40, pomodoro: 70, shot: 0 } as const;
 /** The indicators' boxes, CSS pixels (style.css gives them these sizes). */
@@ -98,6 +104,15 @@ const VOLUME_HUD_W = 138;
 const POWER_HUD_W = 76;
 /** The running Pomodoro in the compact island; wider with the streak's flame beside it. */
 const POMODORO_W = 72;
+/** A timer's colour in the island (its ring, its dot): what it is for. */
+const TIMER_COLOR: Record<TimerKind, string> = { tea: "#e0763f", coffee: "#c58b5c", egg: "#f2c94c", hourglass: "#ffb340" };
+/** Pulled down this far, the compact island opens on the line to write a timer or a thing to do. */
+const PULL_OPEN = 22;
+/** A timer that rang and was left: it rings again after this long, once. */
+const RING_AGAIN_MS = 20_000;
+/** USB drives in the island: their colour, and how long the peek stays. */
+const USB_COLOR = "#7cc4ff";
+const USB_SECONDS = 4;
 const POMODORO_STREAK_W = 30;
 /** Focus play's moments (Island.celebrate): each one's time in the island. They come
  *  as soon as the peek before them (the Pomodoro's phase, the volume, Caps Lock…) is
@@ -401,6 +416,9 @@ export class Island {
   private pendingOpen = false;
   private greetingCanvas!: HTMLCanvasElement;
   private miniGrid!: HTMLElement;
+  private timers!: TimerClock;
+  /** When the timer on the card rang (or rang again), for the one ring more. */
+  private ringAgain: number | null = null;
   private clockEl!: HTMLElement;
   private clockTimer?: number;
   /** The closed island's one line (core/closed.ts), and what it last showed. */
@@ -508,6 +526,7 @@ export class Island {
     this.root = root;
     // At the top of the screen he dances low: a sway and a small hop, never a jump.
     this.engine.danceHop = 0.35;
+    this.timers = new TimerClock({ tick: () => this.timerTick(), ring: (t) => this.ringTimer(t) });
     this.desktop = new DesktopLink({
       reveal: () => this.reveal(),
       wardrobeFromDesktop: () => this.wardrobeFromDesktop(),
@@ -530,6 +549,7 @@ export class Island {
       this.ensureRunning();
     });
     this.scheduleEvening();
+    this.timers.sync();
   }
 
   /** The evening's word, at EVENING_HOUR: one timer for the day, nothing polls. */
@@ -616,6 +636,27 @@ export class Island {
     const actions: ViewActions = {
       setView: (v) => this.setView(v),
       cancelDrop: () => this.discardDrop(),
+      timer: (spec) => this.startTimer(spec),
+      timerCancel: (id) => {
+        Timers.remove(id);
+        this.timers.sync();
+        this.views.get("quick")?.sync();
+      },
+      timerAnswer: (more) => this.answerTimer(more),
+      usbEjected: () => {
+        this.engine.raiseWing();
+        Sound.play("approve");
+        this.ensureRunning();
+      },
+      addToday: (text) => {
+        Today.add(text);
+        this.engine.squash();
+        this.engine.triggerEmote("happy");
+        Sound.play("pop");
+        this.ensureRunning();
+        window.setTimeout(() => this.collapse(), 320);
+      },
+      convert: (kind) => this.convertDrop(kind),
       collapse: () => this.collapse(),
       foldApproval: () => this.foldApproval(),
       setFocus: (id) => {
@@ -790,6 +831,8 @@ export class Island {
         this.setView("prompt");
       },
       cancel: () => this.discardDrop(),
+      convert: (kind) => this.convertDrop(kind),
+      dress: (ctx, R, turn, layer, pitch) => this.engine.drawWorn(ctx, R, turn, layer, pitch),
     });
 
     this.clipEl = h(
@@ -1235,6 +1278,8 @@ export class Island {
       }
       case "drop": {
         State.fileDragOver = false;
+        State.droppedPaths = e.paths ?? [];
+        forgetConverting();
         const path = e.paths?.[0];
         if (!path) {
           this.setView(State.defaultView());
@@ -1287,10 +1332,30 @@ export class Island {
       });
   }
 
+  /** The dropped files made into a PDF, a smaller picture or a JPG (island/convert.ts). */
+  private convertDrop(kind: ConvertKind) {
+    void convert(kind, {
+      show: () => {
+        this.setView("convert");
+        // He looks over at the desk where the pages land.
+        this.engine.glanceTo(1);
+        this.ensureRunning();
+      },
+      made: () => {
+        this.engine.squash();
+        this.engine.triggerEmote("happy");
+        Sound.play("approve");
+        this.ensureRunning();
+      },
+      failed: () => Sound.play("error"),
+    });
+  }
+
   /** "Cancel" on the dropped file: forget it, so the chat does not pick it up, and its copy goes. */
   private discardDrop() {
     if (State.droppedFile) void Bridge.forgetDropped(State.droppedFile.path);
     State.droppedFile = null;
+    State.droppedPaths = [];
     State.promptContext = null;
     this.setView(State.defaultView());
   }
@@ -1332,12 +1397,12 @@ export class Island {
   /** The closed island stays on screen (anything but "hidden"), except in a game. */
   private get closedShows(): boolean {
     if (State.inGame) return false;
-    return closedIsland(State.settings.closedIsland) !== "hidden" || Pomodoro.running || this.guarding;
+    return closedIsland(State.settings.closedIsland) !== "hidden" || Pomodoro.running || this.timers.running() != null || this.guarding;
   }
 
   /** Guard mode: the closed island is Puhu's lane, whatever it shows otherwise (he is in it). */
   private get guarding(): boolean {
-    return this.guardLane && !State.inGame && !Pomodoro.running && !State.puhuOnDesktop;
+    return this.guardLane && !State.inGame && !Pomodoro.running && this.timers.running() == null && !State.puhuOnDesktop;
   }
 
   /** What the closed island holds besides its line: Puhu, the music's waves in his place, or nothing. */
@@ -1345,7 +1410,8 @@ export class Island {
     if (State.inGame) return null;
     if (this.guarding) return "puhu";
     return closedFigure(closedIsland(State.settings.closedIsland), {
-      pomodoro: Pomodoro.running,
+      // A timer's time takes the closed island as the Pomodoro's does.
+      pomodoro: Pomodoro.running || this.timers.running() != null,
       music: this.musicOn,
       closedMusic: State.settings.closedMusic !== false,
     });
@@ -1742,8 +1808,12 @@ export class Island {
       : null;
     // A running Pomodoro takes the closed island: its colour and what is left, turning
     // over once a second. Folded, the island costs a repaint a second, nothing more.
+    const timer = this.timers.running();
     if ((State.mode === "hidden" || this.collapsed) && Pomodoro.phase) {
       content = { text: formatRemaining(Pomodoro.remaining()), dot: POMODORO_COLOR[Pomodoro.phase], note: false };
+    } else if ((State.mode === "hidden" || this.collapsed) && timer) {
+      // A timer too, the same way: its colour and what is left.
+      content = { text: formatLeft(timer.endsAt - Date.now()), dot: TIMER_COLOR[timer.kind], note: false };
     }
     const waves = this.closedWaves;
     const key = (content ? `${style}|${content.text}|${content.dot ?? ""}|${content.note}` : style) + (waves ? "|waves" : "") +
@@ -1787,7 +1857,22 @@ export class Island {
       if (this.collapsed) wake();
     });
 
+    // The wheel, a sideways swipe and the middle button over the island (island/gestures.ts).
+    new Gestures({
+      islandEl: this.islandEl,
+      lookTo: (side) => {
+        this.engine.glanceTo(side);
+        this.ensureRunning();
+      },
+      playedPaused: (player, playing) => {
+        const title = player.state.track?.title ?? "";
+        this.showInfo(svg(playing ? ICONS.play : ICONS.pause, 13), title, CoverColor.css(1, "#1ed760"), 1.6);
+      },
+    });
+
     this.islandEl.addEventListener("mousedown", (e) => {
+      // The middle button is the gestures' (play and pause).
+      if (e.button === 1) return;
       Sound.resume();
       State.lastActivity = performance.now();
       // A click makes a hover-opened island an ordinary open one.
@@ -1813,11 +1898,13 @@ export class Island {
         return;
       }
       if (State.mode !== "expanded") {
-        // A click on the running Pomodoro opens its card.
-        if (State.mode === "compact" && Pomodoro.running && State.tasks.some((t) => t.id === POMODORO_ID)) {
-          State.setFocus(POMODORO_ID);
+        // Pressed in the compact island: pulled down it opens the line to write a timer or a
+        // thing to do; let go where it was, it is the click it always was.
+        if (State.mode === "compact" && e.button === 0 && !this.botPress && !this.hudKind) {
+          this.pullDown(e);
+          return;
         }
-        this.fsm.click();
+        this.compactClick();
         return;
       }
       if (this.isBotHit(e.clientX, e.clientY)) {
@@ -1880,6 +1967,11 @@ export class Island {
       this.ensureRunning();
     });
     void onEvent<Weather | null>("weather", (w) => this.onWeather(w));
+    void onEvent<UsbNews>("usb", (news) => this.onUsb(news));
+    void Bridge.usbDrives().then((drives) => {
+      State.usbDrives = drives ?? [];
+      State.notify();
+    });
     void Bridge.weatherNow().then((w) => {
       if (w && !this.weather) this.onWeather(w);
     });
@@ -1891,6 +1983,139 @@ export class Island {
     // Outside Tauri (plain browser) drive the cursor from DOM events so the
     // island can be inspected with `npm run dev`.
     if (!IS_TAURI) this.followPageCursor();
+  }
+
+  /** A click on the closed or compact island: it opens (a running timer: on the timers). */
+  private compactClick() {
+    // A click on the running Pomodoro opens its card.
+    if (State.mode === "compact" && Pomodoro.running && State.tasks.some((t) => t.id === POMODORO_ID)) {
+      State.setFocus(POMODORO_ID);
+    } else if (State.mode === "compact" && this.timers.running()) {
+      this.alert("quick");
+      return;
+    }
+    this.fsm.click();
+  }
+
+  /**
+   * The compact island pulled down: it stretches after the hand, softened, Puhu hanging on
+   * in it; past PULL_OPEN a tick says it will open, and let go there it opens on the line.
+   */
+  private pullDown(e: MouseEvent) {
+    const x0 = e.clientX;
+    const y0 = e.clientY;
+    const base = this.targetSize().h;
+    let moved = false;
+    let armed = false;
+    let pulled = 0;
+    const move = (ev: MouseEvent) => {
+      const dy = ev.clientY - y0;
+      if (!moved && Math.hypot(ev.clientX - x0, dy) < 4) return;
+      moved = true;
+      pulled = Math.max(0, dy);
+      this.height.springTo(base + 30 * (1 - Math.exp(-pulled / 36)), 0.18, 0.9);
+      this.ensureRunning();
+      if (!armed && pulled >= PULL_OPEN) {
+        armed = true;
+        Sound.play("tick");
+        this.engine.squash();
+      }
+    };
+    const up = () => {
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", up);
+      if (!moved) this.compactClick();
+      else if (pulled >= PULL_OPEN) this.alert("quick");
+      else this.animateGeometry(true);
+    };
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+  }
+
+  /** A second of a running timer: the time the island shows, and the timers on the line. */
+  private timerTick() {
+    this.syncPomodoro();
+    if (State.mode === "expanded" && State.view === "quick") this.views.get("quick")?.sync();
+  }
+
+  /**
+   * A USB drive came or went. In: Puhu catches it (a hop, glad), the island says its name and
+   * the room left, a click opens its card. Out after an eject: it can be taken out. Pulled
+   * out: his feathers ruffle, and the island says it is out.
+   */
+  private onUsb(news: UsbNews) {
+    const d = news.drive;
+    State.usbDrives = news.kind === "in"
+      ? [...State.usbDrives.filter((x) => x.letter !== d.letter), d]
+      : State.usbDrives.filter((x) => x.letter !== d.letter);
+    State.notify();
+    if (State.mode === "expanded" && State.view === "usb") return;
+    if (news.kind === "in") {
+      this.engine.squash();
+      this.engine.triggerEmote("happy");
+      Sound.play("attach");
+      this.ensureRunning();
+      const icon = svg(USB_ICON, 16, { stroke: 1.8 });
+      icon.classList.add("usb-catch");
+      this.showInfo(icon, `${driveName(d)} · ${t("{free} free", { free: bytes(d.free) })}`, USB_COLOR, USB_SECONDS);
+      this.infoAction = () => this.alert("usb");
+      return;
+    }
+    if (news.ejected) {
+      this.showInfo(svg(ICONS.check, 16, { stroke: 2.2 }), t("You can take {name} out", { name: driveName(d) }), "#6ccb5f", 3);
+      return;
+    }
+    this.engine.ruffle();
+    this.ensureRunning();
+    this.showInfo(svg(USB_ICON, 16, { stroke: 1.8 }), t("{name} is out", { name: driveName(d) }), "#c7cbd3", 2.6);
+  }
+
+  /** A timer started from the line or a ready length: Puhu takes up what it is for. */
+  private startTimer(spec: TimerSpec) {
+    Timers.start(spec);
+    this.timers.sync();
+    this.engine.squash();
+    Sound.play("pop");
+    this.ensureRunning();
+    window.setTimeout(() => this.collapse(), 320);
+  }
+
+  /** A timer ended: the card says what is ready, he holds it up ringing. Once more later if left. */
+  private ringTimer(timer: Timer) {
+    if (State.timerRing?.id === timer.id && State.view === "timerDone" && State.mode === "expanded") return;
+    // In a game nothing opens: it rings once the game is left.
+    if (State.inGame) {
+      window.setTimeout(() => this.timers.sync(), 5000);
+      return;
+    }
+    State.timerRing = timer;
+    this.engine.setTimer(timer.kind, 1);
+    this.engine.ringTimer();
+    Sound.play("finish");
+    window.setTimeout(() => Sound.play("finish"), 700);
+    this.alert("timerDone");
+    if (this.ringAgain != null) window.clearTimeout(this.ringAgain);
+    this.ringAgain = window.setTimeout(() => {
+      this.ringAgain = null;
+      if (State.timerRing?.id !== timer.id) return;
+      this.engine.ringTimer();
+      Sound.play("finish");
+      this.alert("timerDone");
+    }, RING_AGAIN_MS);
+  }
+
+  /** OK on the ringing card, or five minutes more. */
+  private answerTimer(more: boolean) {
+    const timer = State.timerRing;
+    State.timerRing = null;
+    if (this.ringAgain != null) window.clearTimeout(this.ringAgain);
+    this.ringAgain = null;
+    if (timer) {
+      if (more) Timers.extend(timer.id, 300);
+      else Timers.remove(timer.id);
+    }
+    this.timers.sync();
+    this.collapse();
   }
 
   /**
@@ -3257,12 +3482,30 @@ export class Island {
    */
   private syncPomodoro() {
     const running = Pomodoro.running;
+    const timer = this.timers.running();
     if (State.mode === "hidden") {
       this.updateClosed();
       this.scheduleClosedLife();
     }
-    this.islandEl.classList.toggle("pomo", running && State.mode === "compact");
-    this.pomodoroEl.classList.toggle("paused", Pomodoro.paused);
+    this.islandEl.classList.toggle("pomo", (running || timer != null) && State.mode === "compact");
+    this.pomodoroEl.classList.toggle("paused", running && Pomodoro.paused);
+    // What he holds: the timer's thing, as far along as it is (not while it rings on the card).
+    if (!State.timerRing) this.engine.setTimer(timer?.kind ?? null, timer ? progressOf(timer, Date.now()) : 0);
+    if (State.mode !== "hidden" && timer) this.ensureRunning();
+    if (!running && timer) {
+      // No Pomodoro: the slot shows the timer, its ring and what is left, without the flame.
+      this.pomodoroEl.style.setProperty("--pomo", TIMER_COLOR[timer.kind]);
+      this.pomodoroRing.setAttribute("stroke-dashoffset", (RING * (1 - progressOf(timer, Date.now()))).toFixed(2));
+      this.pomodoroTime.textContent = formatLeft(timer.endsAt - Date.now());
+      if (this.pomodoroStreakKey !== "timer") {
+        this.pomodoroStreakKey = "timer";
+        this.pomodoroStreak.replaceChildren();
+        this.pomodoroW = POMODORO_W;
+        this.pomodoroEl.style.width = `${this.pomodoroW}px`;
+        this.applyGeometry();
+      }
+      return;
+    }
     if (!running || !Pomodoro.phase) return;
     this.pomodoroEl.style.setProperty("--pomo", POMODORO_COLOR[Pomodoro.phase]);
     this.pomodoroRing.setAttribute("stroke-dashoffset", (RING * (1 - Pomodoro.progress())).toFixed(2));
@@ -3535,7 +3778,7 @@ export class Island {
     // afresh each time the island does (the chat's field, today's list unrolling).
     const showing = State.mode === "expanded" ? State.view : null;
     if (this.lastSyncedView !== showing) {
-      const typing = (v: string | null) => v === "prompt" || v === "today";
+      const typing = (v: string | null) => v === "prompt" || v === "today" || v === "quick";
       const wasTyping = typing(this.lastSyncedView);
       this.lastSyncedView = showing;
       if (showing && typing(showing)) {

@@ -13,6 +13,10 @@ export type IslandViewName =
   | "upload"
   | "uploading"
   | "choose"
+  | "convert"
+  | "quick"
+  | "timerDone"
+  | "usb"
   | "mail"
   | "prompt"
   | "searching"
@@ -85,6 +89,14 @@ export const VIEW_LAYOUTS: Record<IslandViewName, ViewLayout> = {
   // botY 103 = bar top (42 + 58) + 3, so the dot really rides the bar.
   uploading: { height: 176, botX: 46, botY: 103, botDiameter: 20, agentMode: "none" },
   choose: { height: 176, botX: 60, botY: 101, botDiameter: 52, agentMode: "column" },
+  // A PDF or a smaller picture being made from the drop, then made (views/convert.ts).
+  convert: { height: 176, botX: 60, botY: 101, botDiameter: 52, agentMode: "none" },
+  // The line pulled down from the island: a timer or a thing to do (views/quick.ts).
+  quick: { height: 150, botX: 58, botY: null, botDiameter: 50, agentMode: "none" },
+  // A timer rang: Puhu holds up what is ready (views/quick.ts).
+  timerDone: { height: 150, botX: 62, botY: null, botDiameter: 58, agentMode: "none" },
+  // The USB drives plugged in, with Open and Eject safely (views/usb.ts).
+  usb: { height: 160, botX: 58, botY: null, botDiameter: 52, agentMode: "none" },
   mail: { height: 240, botX: 56, botY: null, botDiameter: 46, agentMode: "column" },
   prompt: { height: 160, botX: 52, botY: null, botDiameter: 44, agentMode: "column" },
   searching: { height: 160, botX: 52, botY: null, botDiameter: 44, agentMode: "column" },

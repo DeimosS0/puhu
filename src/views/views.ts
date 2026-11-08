@@ -8,6 +8,11 @@ import { washRGBA, type IslandViewName, type Wash } from "../core/layout";
 import { createMiniBot, pruneMiniBots } from "../puhu/minibots";
 import { buildPrompt } from "./chat";
 import { buildChoose, buildUpload, buildUploading } from "./upload";
+import { buildConvert } from "./convert";
+import { buildQuick, buildTimerDone } from "./quick";
+import { USB_ICON, buildUsb } from "./usb";
+import type { TimerSpec } from "../core/timer";
+import type { ConvertKind } from "../island/convert";
 import { renderIntegrationCard, type IntegrationCardHooks } from "./integrations";
 import { highlightRow, listRows, openRow } from "./github";
 import { pillDefinition, sessionSubtitle } from "../core/pills";
@@ -40,6 +45,16 @@ export interface ViewActions {
   setView(v: IslandViewName): void;
   /** "Cancel" on a dropped file: forgets it and goes back home. */
   cancelDrop(): void;
+  /** The dropped files made into a PDF, a smaller picture or a JPG (island/convert.ts). */
+  convert(kind: ConvertKind): void;
+  /** The line (views/quick.ts): a timer started, one cancelled, a thing for today's list. */
+  timer(spec: TimerSpec): void;
+  timerCancel(id: string): void;
+  addToday(text: string): void;
+  /** The ringing timer's card: OK, or five minutes more. */
+  timerAnswer(more: boolean): void;
+  /** A USB drive was ejected from its card: Puhu waves it off. */
+  usbEjected(): void;
   collapse(): void;
   /** Folds a waiting card to the compact island without answering it. */
   foldApproval(): void;
@@ -124,6 +139,8 @@ export function buildHeader(actions: ViewActions): ViewHost {
   const tabChat = h("button", { class: "tab", title: tl("Ask"), onclick: () => go("prompt") }, svg(ICONS.bubbleRound, 19));
   const tabDrop = h("button", { class: "tab", title: tl("Drop"), onclick: () => go("upload") }, svg(ICONS.plus, 16));
   const tabToday = h("button", { class: "tab", title: tl("Today"), onclick: () => go("today") }, svg(ICONS.checklist, 18, { stroke: 1.7 }));
+  const tabQuick = h("button", { class: "tab", title: tl("Timer"), onclick: () => go("quick") }, svg(ICONS.timer, 17));
+  const tabUsb = h("button", { class: "tab usb-tab", title: tl("USB drives"), onclick: () => go("usb") }, svg(USB_ICON, 17, { stroke: 1.7 }));
 
   const gearBtn = h("button", { title: tl("Settings"), onclick: () => go("settings") }, svg(ICONS.gearLine, 18, { stroke: 1.6 }));
   const soundBtn = h("button", { title: tl("Mute"), onclick: () => actions.toggleSound() }, svg(ICONS.speakerLine, 18, { stroke: 1.6 }));
@@ -144,7 +161,7 @@ export function buildHeader(actions: ViewActions): ViewHost {
   const el = h(
     "div",
     { id: "header" },
-    h("div", { class: "tabs" }, tabHome, tabToday, tabChat, tabDrop),
+    h("div", { class: "tabs" }, tabHome, tabToday, tabQuick, tabChat, tabDrop, tabUsb),
     h("div", { class: "header-actions" }, planPills, gearBtn, soundBtn, closeBtn),
   );
   const headerActions = el.lastElementChild as HTMLElement;
@@ -157,6 +174,9 @@ export function buildHeader(actions: ViewActions): ViewHost {
       tabChat.classList.toggle("on", v === "prompt");
       tabDrop.classList.toggle("on", v === "upload");
       tabToday.classList.toggle("on", v === "today");
+      tabQuick.classList.toggle("on", v === "quick" || v === "timerDone");
+      tabUsb.classList.toggle("on", v === "usb");
+      tabUsb.style.display = State.usbDrives.length > 0 ? "" : "none";
       gearBtn.classList.toggle("on", v === "settings");
       clear(gearBtn);
       gearBtn.append(v === "settings" ? svg(ICONS.gearFill, 18) : svg(ICONS.gearLine, 18, { stroke: 1.6 }));
@@ -888,6 +908,10 @@ export function buildViews(
   map.set("upload", buildUpload());
   map.set("uploading", buildUploading());
   map.set("choose", buildChoose(actions));
+  map.set("convert", buildConvert(actions));
+  map.set("quick", buildQuick(actions));
+  map.set("timerDone", buildTimerDone(actions));
+  map.set("usb", buildUsb(actions));
   map.set("recap", buildRecap(actions));
   map.set("wardrobe", buildWardrobe(actions));
   map.set("update", buildUpdate());

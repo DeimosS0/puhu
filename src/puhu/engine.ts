@@ -5,6 +5,7 @@ import { MusicPulse } from "../core/beat";
 import { Sound } from "../core/sound";
 import type { BotEmoteName, BotStateName } from "../core/layout";
 import { PUHU_COLORS, PUHU_EYE_P, PUHU_EYE_SCALE, PUHU_EYE_SP, PUHU_RX, PUHU_RY, puhuColor, puhuPoint } from "./puhu";
+import type { TimerKind } from "../core/timer";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -200,7 +201,7 @@ export function danceTransform(seconds: number, level: number, R: number, hop = 
 // ── Engine ────────────────────────────────────────────────────────────────────
 
 /** What he can wear: for what goes on (setAccessories) and for the weather (setWeather). */
-const WEAR_KEYS = ["phones", "band", "glasses", "umbrella", "scarf", "sun", "moon", "mug", "beret", "pencil"] as const;
+const WEAR_KEYS = ["phones", "band", "glasses", "umbrella", "scarf", "sun", "moon", "mug", "beret", "pencil", "timer"] as const;
 type WearKey = (typeof WEAR_KEYS)[number];
 const SCARF = "#d9534f";
 const SCARF_STRIPE = "rgba(120,20,30,0.45)";
@@ -210,6 +211,17 @@ const UMBRELLA_SHAFT = "#5b4636";
 const MOON = "#ffe9a8";
 const MUG = "#3aa6a0";
 const COFFEE = "#6f4a2f";
+/** A timer's things: tea from just poured to brewed, the glass, its saucer, an egg, sand. */
+const TEA_FROM: RGB = [0.93, 0.66, 0.27];
+const TEA_TO: RGB = [0.62, 0.15, 0.06];
+const GLASS = "rgba(255,255,255,0.78)";
+const SAUCER = "#e6ebf2";
+const EGG = "#fbefd9";
+const EGG_CUP = "#7fb7e8";
+const SAND = "#f2c66d";
+const WOOD = "#b07a4f";
+/** How much of his face's turn up or down his scarf follows (it is lower on his round body). */
+const SCARF_FOLLOWS = 0.35;
 const BERET = "#34495e";
 const PENCIL = "#f4c430";
 
@@ -256,12 +268,16 @@ export class BotEngine {
    * a scarf, sunglasses, the moon beside him. Each comes and goes on a spring (0 off, 1 on,
    * a little past 1 as it lands).
    */
-  private wear = { phones: 0, band: 0, glasses: 0, umbrella: 0, scarf: 0, sun: 0, moon: 0, mug: 0, beret: 0, pencil: 0 };
-  private wearVel = { phones: 0, band: 0, glasses: 0, umbrella: 0, scarf: 0, sun: 0, moon: 0, mug: 0, beret: 0, pencil: 0 };
+  private wear = { phones: 0, band: 0, glasses: 0, umbrella: 0, scarf: 0, sun: 0, moon: 0, mug: 0, beret: 0, pencil: 0, timer: 0 };
+  private wearVel = { phones: 0, band: 0, glasses: 0, umbrella: 0, scarf: 0, sun: 0, moon: 0, mug: 0, beret: 0, pencil: 0, timer: 0 };
   private wearOn = {
     phones: false, band: false, glasses: false, umbrella: false, scarf: false, sun: false, moon: false,
-    mug: false, beret: false, pencil: false,
+    mug: false, beret: false, pencil: false, timer: false,
   };
+  /** A timer he holds (core/timer.ts): what it is for, how far along, and ringing until then (s). */
+  private timerKind: TimerKind = "hourglass";
+  private timerProgress = 0;
+  private timerRingUntil = 0;
   private bandCol: RGB = [1, 0.478, 0.349];
   private bandColT: RGB = [1, 0.478, 0.349];
   /** No badge over his head: the closed island has no room above him. */
@@ -415,6 +431,20 @@ export class BotEngine {
   }
 
   /** What the user is busy with: a mug of coffee, a beret, a pencil behind his tuft. */
+  /** A timer running: he holds what it is for, as far along as it is; null puts it down. */
+  setTimer(kind: TimerKind | null, progress: number) {
+    this.wearOn.timer = kind != null;
+    if (kind) {
+      this.timerKind = kind;
+      this.timerProgress = progress;
+    }
+  }
+
+  /** The timer rang: what he holds jiggles and hops for a moment. */
+  ringTimer(ms = 2400) {
+    this.timerRingUntil = now() + ms / 1000;
+  }
+
   setActivity(kind: Activity | null) {
     this.wearOn.mug = kind === "code";
     this.wearOn.beret = kind === "design";
@@ -638,6 +668,12 @@ export class BotEngine {
     this.anim("yaw", [[0.35, 260, Ease.out], [0.45, 250, Ease.lin], [0, 400, Ease.inOut]]);
   }
 
+  /** A look to one side and back (1 his right, -1 his left): the song he was sent to. */
+  glanceTo(side: number) {
+    this.anim("yaw", [[0.55 * side, 170, Ease.out], [0.55 * side, 320, Ease.lin], [0, 420, Ease.inOut]]);
+    this.anim("ox", [[0.08 * side, 170, Ease.out], [0.08 * side, 320, Ease.lin], [0, 420, Ease.inOut]]);
+  }
+
   /** One wing up, like a raised hand: "over here". */
   raiseWing() {
     this.wingUp = Math.random() < 0.5 ? 1 : -1;
@@ -823,7 +859,8 @@ export class BotEngine {
       this.particles.length > 0 ||
       this.cfg.bounces || this.cfg.scans || this.cfg.breathes || this.cfg.zz || this.cfg.sweat ||
       this.isMini ||
-      this.isDancing || this.dancingLevel > 0.001 || this.stride > 0.001 || now() < Math.max(this.sipTo, this.antennaUntil, this.earsUntil, this.shhUntil, this.perkUntil) ||
+      this.isDancing || this.dancingLevel > 0.001 || this.stride > 0.001 ||
+      now() < Math.max(this.sipTo, this.antennaUntil, this.earsUntil, this.shhUntil, this.perkUntil, this.timerRingUntil) ||
       Math.abs(this.tgYaw - this.yaw) > 0.002 ||
       Math.abs(this.tgPitch - this.pitch) > 0.002 ||
       Math.abs(this.tgTilt - this.tilt) > 0.002 ||
@@ -1122,6 +1159,7 @@ export class BotEngine {
         this.drawBeret(x, R, rx, ry);
         this.drawPencil(x, R, rx, ry);
         this.drawMug(x, R, rx, ry);
+        this.drawTimer(x, R, rx, ry);
       }
     }
     this.drawSip(x, R, ry);
@@ -1625,8 +1663,13 @@ export class BotEngine {
   private drawScarf(x: CanvasRenderingContext2D, body: Path2D, R: number, rx: number, ry: number) {
     if (this.wear.scarf < 0.01) return;
     const { off, alpha } = this.wearing("scarf");
-    // Under his face, where his round body would have a neck.
-    const y = ry * (0.56 + off * 0.5);
+    // Under his face, where his round body would have a neck. Looking down or up, his
+    // front turns and the scarf with it, so his eyes (his glasses) never come down onto it;
+    // looking aside, its end swings round with his face.
+    const look = this.pitch + this.roll;
+    const turned = -(Math.sin(PUHU_EYE_P + look) - Math.sin(PUHU_EYE_P)) * ry * SCARF_FOLLOWS;
+    const aside = Math.sin(this.yaw + Math.sin(this.swivel) * 1.4) * rx * 0.55;
+    const y = ry * (0.56 + off * 0.5) + turned;
     const h = R * 0.22;
     x.save();
     x.globalAlpha = alpha;
@@ -1645,7 +1688,7 @@ export class BotEngine {
     // The end, hanging over his front on the right.
     x.fillStyle = SCARF;
     x.save();
-    x.translate(rx * 0.42, y + h * 0.6);
+    x.translate(rx * 0.42 + aside, y + h * 0.6);
     x.rotate(-0.12 + Math.sin(now() * 1.7) * 0.03);
     x.beginPath();
     x.roundRect(-h * 0.45, 0, h * 0.9, R * 0.42, h * 0.25);
@@ -1821,6 +1864,188 @@ export class BotEngine {
       x.stroke();
     }
     x.restore();
+  }
+
+  /**
+   * The timer's thing, held in front of him on his right: a tulip glass of tea darkening
+   * as it brews on its saucer, a cup of coffee, an egg in its cup wobbling near the end,
+   * or an hourglass running out. Ringing, it jiggles and hops.
+   */
+  private drawTimer(x: CanvasRenderingContext2D, R: number, rx: number, ry: number) {
+    if (this.wear.timer < 0.01) return;
+    const { off, alpha } = this.wearing("timer");
+    const t = now();
+    const p = this.timerProgress;
+    const ring = Math.max(0, this.timerRingUntil - t);
+    const shake = ring > 0 ? Math.sin(t * 34) * 0.22 * Math.min(1, ring) : 0;
+    const hop = ring > 0 ? Math.abs(Math.sin(t * 9)) * R * 0.08 * Math.min(1, ring) : 0;
+    x.save();
+    x.globalAlpha = alpha;
+    // At his side, a little larger than the mug: it is what the timer is about.
+    x.translate(rx * 1.02, ry * (0.62 + off * 0.4) - hop);
+    x.scale(1.3, 1.3);
+    x.rotate(shake);
+    x.lineJoin = "round";
+    x.lineCap = "round";
+    if (this.timerKind === "tea") {
+      const h = R * 0.46;
+      const w = R * 0.27;
+      const waist = w * 0.6;
+      const foot = w * 0.84;
+      const glass = new Path2D();
+      glass.moveTo(-w / 2, -h / 2);
+      glass.bezierCurveTo(-w / 2, -h * 0.12, -waist / 2, -h * 0.08, -waist / 2, h * 0.08);
+      glass.bezierCurveTo(-waist / 2, h * 0.3, -foot / 2, h * 0.36, -foot / 2, h / 2);
+      glass.lineTo(foot / 2, h / 2);
+      glass.bezierCurveTo(foot / 2, h * 0.36, waist / 2, h * 0.3, waist / 2, h * 0.08);
+      glass.bezierCurveTo(waist / 2, -h * 0.08, w / 2, -h * 0.12, w / 2, -h / 2);
+      glass.closePath();
+      x.fillStyle = SAUCER;
+      x.beginPath();
+      x.ellipse(0, h / 2 + R * 0.015, w * 0.95, R * 0.04, 0, 0, Math.PI * 2);
+      x.fill();
+      x.save();
+      x.clip(glass);
+      x.fillStyle = rgba(mix3(TEA_FROM, TEA_TO, p), 0.92);
+      x.fillRect(-w, -h / 2 + h * 0.14, w * 2, h);
+      x.restore();
+      x.strokeStyle = GLASS;
+      x.lineWidth = R * 0.028;
+      x.stroke(glass);
+      if (p < 1) this.steam(x, R, 0, -h / 2, w * 0.2, alpha * (1 - p * 0.6));
+    } else if (this.timerKind === "coffee") {
+      const w = R * 0.32;
+      const h = R * 0.34;
+      x.fillStyle = MUG;
+      x.strokeStyle = MUG;
+      x.lineWidth = R * 0.06;
+      x.beginPath();
+      x.arc(w / 2, h * 0.05, h * 0.22, -Math.PI * 0.5, Math.PI * 0.5);
+      x.stroke();
+      x.beginPath();
+      x.roundRect(-w / 2, -h / 2, w, h, R * 0.05);
+      x.fill();
+      x.fillStyle = COFFEE;
+      x.beginPath();
+      x.ellipse(0, -h / 2 + R * 0.02, w * 0.42, R * 0.035, 0, 0, Math.PI * 2);
+      x.fill();
+      if (p < 1) this.steam(x, R, 0, -h / 2, w * 0.18, alpha);
+    } else if (this.timerKind === "egg") {
+      // Near the end it starts to wobble in its cup.
+      const wobble = Math.sin(t * 11) * 0.16 * Math.max(0, (p - 0.7) / 0.3);
+      x.save();
+      x.translate(0, -R * 0.04);
+      x.rotate(wobble);
+      x.fillStyle = EGG;
+      x.beginPath();
+      x.ellipse(0, -R * 0.08, R * 0.12, R * 0.16, 0, 0, Math.PI * 2);
+      x.fill();
+      x.restore();
+      x.fillStyle = EGG_CUP;
+      x.beginPath();
+      x.moveTo(-R * 0.15, -R * 0.02);
+      x.quadraticCurveTo(-R * 0.14, R * 0.12, 0, R * 0.13);
+      x.quadraticCurveTo(R * 0.14, R * 0.12, R * 0.15, -R * 0.02);
+      x.closePath();
+      x.fill();
+      x.fillRect(-R * 0.07, R * 0.12, R * 0.14, R * 0.05);
+      x.fillRect(-R * 0.11, R * 0.16, R * 0.22, R * 0.035);
+    } else {
+      // The top bulb empties into the bottom one.
+      const h = R * 0.46;
+      const w = R * 0.26;
+      const bulb = h * 0.44;
+      x.fillStyle = SAND;
+      x.beginPath();
+      const top = 1 - p;
+      x.moveTo(-w * 0.42 * top, -bulb * top);
+      x.lineTo(w * 0.42 * top, -bulb * top);
+      x.lineTo(0, 0);
+      x.closePath();
+      x.fill();
+      x.beginPath();
+      x.moveTo(-w * 0.44, bulb);
+      x.lineTo(w * 0.44, bulb);
+      x.lineTo(w * 0.44 * (1 - p), bulb * (1 - p));
+      x.lineTo(-w * 0.44 * (1 - p), bulb * (1 - p));
+      x.closePath();
+      x.fill();
+      if (p < 1) {
+        x.strokeStyle = SAND;
+        x.lineWidth = R * 0.02;
+        x.beginPath();
+        x.moveTo(0, 0);
+        x.lineTo(0, bulb);
+        x.stroke();
+      }
+      x.strokeStyle = GLASS;
+      x.lineWidth = R * 0.026;
+      x.beginPath();
+      x.moveTo(-w / 2, -bulb);
+      x.lineTo(0, 0);
+      x.lineTo(-w / 2, bulb);
+      x.moveTo(w / 2, -bulb);
+      x.lineTo(0, 0);
+      x.lineTo(w / 2, bulb);
+      x.stroke();
+      x.fillStyle = WOOD;
+      x.beginPath();
+      x.roundRect(-w * 0.62, -bulb - R * 0.05, w * 1.24, R * 0.05, R * 0.02);
+      x.roundRect(-w * 0.62, bulb, w * 1.24, R * 0.05, R * 0.02);
+      x.fill();
+    }
+    x.restore();
+  }
+
+  /**
+   * What he wears, for a Puhu drawn elsewhere (the drop scene, upload/canvas.ts), so he is
+   * dressed there as in the island and nothing comes or goes when one hands over to the
+   * other: `behind` before his body (the headphones' band), `front` over it. The caller has
+   * moved to his middle (tilted, squashed); `turn` and `pitch` are where his head faces. What he would
+   * hold (a mug, a pencil, an umbrella, a timer's thing) stays out: his wings hold the file.
+   */
+  drawWorn(x: CanvasRenderingContext2D, R: number, turn: number, layer: "behind" | "front", pitch = 0) {
+    const [yaw, swivel, ownPitch, roll] = [this.yaw, this.swivel, this.pitch, this.roll];
+    this.yaw = turn;
+    this.swivel = 0;
+    this.pitch = pitch;
+    this.roll = 0;
+    const rx = R * PUHU_RX;
+    const ry = R * PUHU_RY;
+    if (layer === "behind") {
+      this.drawPhones(x, R, turn, false);
+    } else {
+      const body = this.bodyPath(rx, ry, R);
+      this.drawScarf(x, body, R, rx, ry);
+      this.drawBand(x, body, R, rx, turn);
+      this.drawGlasses(x, R, rx, ry, this.wear.glasses >= 0.01 ? "glasses" : "sun");
+      this.drawPhones(x, R, turn, true);
+      this.drawMoon(x, R, rx, ry);
+      if (R > 14) this.drawBeret(x, R, rx, ry);
+    }
+    this.yaw = yaw;
+    this.swivel = swivel;
+    this.pitch = ownPitch;
+    this.roll = roll;
+  }
+
+  /** Two wisps of steam rising from (cx, top), swaying. */
+  private steam(x: CanvasRenderingContext2D, R: number, cx: number, top: number, apart: number, alpha: number) {
+    const t = now();
+    x.strokeStyle = "rgba(255,255,255,0.55)";
+    x.lineWidth = R * 0.03;
+    for (const [i, dx] of [[0, -apart], [1, apart]] as const) {
+      const phase = t * 2.2 + i * 1.7;
+      x.globalAlpha = alpha * (0.5 + 0.5 * Math.sin(phase * 0.5) ** 2);
+      x.beginPath();
+      x.moveTo(cx + dx, top - R * 0.04);
+      x.bezierCurveTo(
+        cx + dx + Math.sin(phase) * R * 0.07, top - R * 0.13,
+        cx + dx - Math.sin(phase) * R * 0.07, top - R * 0.2,
+        cx + dx + Math.sin(phase + 1) * R * 0.045, top - R * 0.29,
+      );
+      x.stroke();
+    }
   }
 
   /** A clear night: a small moon beside him. */

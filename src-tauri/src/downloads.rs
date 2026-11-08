@@ -5,7 +5,7 @@
 // click on it shows the file in its folder. Linux has no indicator yet.
 
 #[cfg(windows)]
-pub use imp::start;
+pub use imp::{downloads_dir, start};
 
 #[cfg(not(windows))]
 pub fn start(_app: &tauri::AppHandle) {}
@@ -54,7 +54,7 @@ mod imp {
     /// when, so one file is not told twice (a rename right after its placeholder).
     static LAST: Mutex<Option<(PathBuf, Instant)>> = Mutex::new(None);
 
-    fn downloads_dir() -> Option<PathBuf> {
+    pub fn downloads_dir() -> Option<PathBuf> {
         use windows::Win32::System::Com::CoTaskMemFree;
         use windows::Win32::UI::Shell::{FOLDERID_Downloads, SHGetKnownFolderPath, KNOWN_FOLDER_FLAG};
         unsafe {
@@ -66,6 +66,10 @@ mod imp {
     }
 
     fn finished(app: &AppHandle, path: &Path) {
+        // A file Puhu made from a drop (a PDF beside a downloaded photo) is no download.
+        if crate::convert::is_made(path) {
+            return;
+        }
         let Some(name) = path.file_name().map(|n| n.to_string_lossy().into_owned()) else { return };
         {
             let mut last = LAST.lock().unwrap();

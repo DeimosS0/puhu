@@ -12,6 +12,7 @@ mod cli_relay;
 mod codex_plan;
 mod config_file;
 mod connectivity;
+mod convert;
 mod copied;
 mod desktop;
 mod downloads;
@@ -50,6 +51,7 @@ mod spotify;
 mod system_volume;
 mod tray;
 mod update;
+mod usb;
 mod voice;
 #[cfg(windows)]
 mod weather;
@@ -1044,6 +1046,17 @@ pub fn run() {
             spotify::nowplaying_refresh,
             spotify::nowplaying_control,
             spotify::nowplaying_open,
+            system_volume::system_volume_step,
+            convert::convert_images_pdf,
+            convert::convert_image,
+            convert::convert_read,
+            convert::convert_html_pdf,
+            convert::made_copy,
+            convert::made_reveal,
+            convert::made_open,
+            usb::usb_drives,
+            usb::usb_open,
+            usb::usb_eject,
             whatsapp::whatsapp_island,
             whatsapp::whatsapp_open,
             whatsapp::whatsapp_close,
@@ -1113,6 +1126,7 @@ pub fn run() {
             privacy::start(&handle);
             connectivity::start(&handle);
             downloads::start(&handle);
+            usb::start(&handle);
             screenshot::start(&handle);
 
             if let Some(win) = island::window(&handle) {
