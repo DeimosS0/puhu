@@ -31,6 +31,7 @@ mod mail;
 mod net;
 mod notes;
 mod openai_compat;
+mod phone;
 mod pipe;
 mod platform;
 #[cfg(target_os = "linux")]
@@ -129,6 +130,7 @@ fn save_settings(app: AppHandle, shared: State<Shared>, settings: Settings) {
     if let Err(err) = settings::save(&settings) {
         log::line(format!("could not save settings: {err}"));
     }
+    activity::set_counting(settings.count_work == Some(true));
     if autostart_changed {
         let manager = app.autolaunch();
         let result = if settings.autostart { manager.enable() } else { manager.disable() };
@@ -677,6 +679,12 @@ fn secret_set(app: AppHandle, key: String, value: String) -> Result<(), String> 
     if key == local_chat::CUSTOM_KEY {
         return Err("use local_set_key".into());
     }
+    // A self-hosted instance's token goes to its address on every poll: never over http
+    // across a network.
+    let instance = matches!(key.as_str(), "gitea-url" | "gitlab-url" | "n8n-url");
+    if instance && !value.trim().is_empty() && integrations::instance_url(&value).is_none() {
+        return Err(i18n::t("A key is only sent over https, or to a server on this computer."));
+    }
     let before = (key == "github-token").then(|| secrets::get(&key));
     secrets::set(&key, &value)?;
     if key == claude::KEY {
@@ -955,6 +963,7 @@ pub fn run() {
             screenshot::screenshot_view,
             screenshot::save_screenshot,
             screenshot::reveal_saved_screenshot,
+            screenshot::clear_screenshots,
             downloads::reveal_last_download,
             beat::music_listen,
             set_island_rect,
@@ -997,6 +1006,18 @@ pub fn run() {
             forget_dropped,
             progress::progress_add,
             progress::progress_read,
+            progress::progress_clear,
+            log::log_clear,
+            files::clear_inbox,
+            activity::work_slots,
+            activity::work_clear,
+            phone::phone_network,
+            phone::phone_trust_network,
+            phone::phone_forget_networks,
+            phone::phone_send,
+            phone::phone_receive,
+            phone::phone_cancel,
+            phone::phone_reveal_downloads,
             presenting,
             secret_present,
             claude_ready,
@@ -1128,6 +1149,8 @@ pub fn run() {
             downloads::start(&handle);
             usb::start(&handle);
             screenshot::start(&handle);
+            convert::clear_leftovers();
+            phone::clear_leftovers();
 
             if let Some(win) = island::window(&handle) {
                 // Where Tauri takes the drop itself (Linux), its paths are the
@@ -1164,6 +1187,7 @@ pub fn run() {
             }
             game::start(handle.clone());
             activity::start(handle.clone());
+            activity::set_counting(settings::load().count_work == Some(true));
             pipe::start(handle.clone());
             integrations::start(handle.clone());
             mail::start(handle.clone());
@@ -1190,6 +1214,7 @@ pub fn run() {
         .run(|app, event| {
             if let tauri::RunEvent::Exit = event {
                 notes::shutdown(app);
+                screenshot::clear();
                 // GOWA started by Puhu stops with it; the conversations were only in memory.
                 whatsapp::shutdown();
             }

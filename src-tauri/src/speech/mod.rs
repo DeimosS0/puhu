@@ -1,6 +1,9 @@
 // Speech to text on this computer: NVIDIA's Parakeet (25 languages) through
 // sherpa-onnx, and the small models that tell the voices of a call apart.
 //
+// Only with the `dictation` feature (Cargo.toml): without it, the default while Flow is
+// set aside, nothing is recognised and sherpa-onnx is not built at all.
+//
 // Nothing is downloaded until the user clicks Download in Puhu → Settings.
 // The files come from Hugging Face at a pinned revision, are checked against
 // their SHA-256 and kept in %LOCALAPPDATA%\Puhu\Models (Windows) or
@@ -10,10 +13,13 @@ pub mod audio;
 
 use std::io::Write;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex, OnceLock};
+#[cfg(feature = "dictation")]
+use std::sync::Arc;
+use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
 use serde::Serialize;
+#[cfg(feature = "dictation")]
 use sherpa_onnx::{
     OfflineRecognizer, OfflineRecognizerConfig, OfflineSpeakerDiarization, OfflineSpeakerDiarizationConfig,
     OfflineTransducerModelConfig,
@@ -43,6 +49,7 @@ impl ModelSet {
         models_dir().join(self.id)
     }
 
+    #[cfg_attr(not(feature = "dictation"), allow(dead_code))]
     fn path(&self, name: &str) -> String {
         self.dir().join(name).to_string_lossy().to_string()
     }
@@ -265,22 +272,26 @@ pub fn remove(app: &AppHandle) {
 
 // ── Recognition ───────────────────────────────────────────────────────────────
 
+#[cfg(feature = "dictation")]
 fn recognizer_slot() -> &'static Mutex<Option<Arc<OfflineRecognizer>>> {
     static R: OnceLock<Mutex<Option<Arc<OfflineRecognizer>>>> = OnceLock::new();
     R.get_or_init(|| Mutex::new(None))
 }
 
 /// Serialises loading: two callers never load the 650 MB model twice.
+#[cfg(feature = "dictation")]
 fn load_lock() -> &'static Mutex<()> {
     static L: OnceLock<Mutex<()>> = OnceLock::new();
     L.get_or_init(|| Mutex::new(()))
 }
 
+#[cfg(feature = "dictation")]
 fn threads() -> i32 {
     std::thread::available_parallelism().map(|n| n.get().clamp(1, 4) as i32).unwrap_or(2)
 }
 
 /// The loaded recognizer, loading it on first use (about 2 s).
+#[cfg(feature = "dictation")]
 pub fn recognizer() -> Option<Arc<OfflineRecognizer>> {
     if let Some(r) = recognizer_slot().lock().unwrap().clone() {
         return Some(r);
@@ -312,6 +323,7 @@ pub fn recognizer() -> Option<Arc<OfflineRecognizer>> {
 }
 
 /// Loads the model in the background, so the first dictation is not slowed down.
+#[cfg(feature = "dictation")]
 pub fn preload() {
     if !PARAKEET.is_present() || recognizer_slot().lock().unwrap().is_some() {
         return;
@@ -322,8 +334,26 @@ pub fn preload() {
 }
 
 /// Frees the model's memory (dictation turned off, models removed).
+#[cfg(feature = "dictation")]
 pub fn unload() {
     *recognizer_slot().lock().unwrap() = None;
+}
+
+/// Without the `dictation` feature: nothing to load, nothing recognised.
+#[cfg(not(feature = "dictation"))]
+pub fn preload() {}
+
+#[cfg(not(feature = "dictation"))]
+pub fn unload() {}
+
+#[cfg(not(feature = "dictation"))]
+pub fn transcribe(_samples: &[f32]) -> Option<Transcript> {
+    None
+}
+
+#[cfg(not(feature = "dictation"))]
+pub fn diarize(_samples: &[f32]) -> Vec<Turn> {
+    Vec::new()
 }
 
 /// What was said, and each word with its place in the audio.
@@ -335,6 +365,7 @@ pub struct Transcript {
 
 /// Longest stretch given to the model at once. Longer audio is cut where it is
 /// quietest, near this length.
+#[cfg(feature = "dictation")]
 const MAX_CHUNK_SECONDS: f64 = 28.0;
 
 /// Silence given to the model before and after each stretch, in samples.
@@ -345,10 +376,13 @@ const MAX_CHUNK_SECONDS: f64 = 28.0;
 /// going ("Okay, that marche plutôt bien. Moi, le truc is that…"). Half a
 /// second of silence first, as a call always has, and it hears the language
 /// that is spoken (tests: `a_sudden_start_keeps_its_language`).
+#[cfg_attr(not(feature = "dictation"), allow(dead_code))]
 const LEAD_SILENCE: usize = SAMPLE_RATE as usize / 2;
+#[cfg_attr(not(feature = "dictation"), allow(dead_code))]
 const TAIL_SILENCE: usize = SAMPLE_RATE as usize * 3 / 10;
 
 /// `chunk` between the silences the model is given it with.
+#[cfg_attr(not(feature = "dictation"), allow(dead_code))]
 pub fn padded(chunk: &[f32]) -> Vec<f32> {
     let mut out = Vec::with_capacity(LEAD_SILENCE + chunk.len() + TAIL_SILENCE);
     out.resize(LEAD_SILENCE, 0.0);
@@ -358,6 +392,7 @@ pub fn padded(chunk: &[f32]) -> Vec<f32> {
 }
 
 /// Transcribes 16 kHz mono audio.
+#[cfg(feature = "dictation")]
 pub fn transcribe(samples: &[f32]) -> Option<Transcript> {
     let rec = recognizer()?;
     let mut out = Transcript::default();
@@ -394,6 +429,7 @@ pub fn transcribe(samples: &[f32]) -> Option<Transcript> {
 /// Parakeet's tokens (" Ne", " vous", " dem", "ande", "z") → words with times.
 /// A token starting with a space starts a word; a word ends where the next
 /// token begins (or a moment after its last token, for the last word).
+#[cfg_attr(not(feature = "dictation"), allow(dead_code))]
 pub fn words_from_tokens(tokens: &[String], timestamps: &[f32], offset: f64, length: f64) -> Vec<TimedWord> {
     let mut out: Vec<TimedWord> = Vec::new();
     for (i, token) in tokens.iter().enumerate() {
@@ -423,6 +459,7 @@ pub fn words_from_tokens(tokens: &[String], timestamps: &[f32], offset: f64, len
 // ── Who speaks when ───────────────────────────────────────────────────────────
 
 /// The voices of a recording, as turns "0", "1"… Empty when it can't tell.
+#[cfg(feature = "dictation")]
 pub fn diarize(samples: &[f32]) -> Vec<Turn> {
     if !DIARIZER.is_present() || samples.len() < SAMPLE_RATE as usize * 2 {
         return Vec::new();

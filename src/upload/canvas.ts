@@ -14,6 +14,7 @@ import { USC, lerp, progressAt, type UploadEyeShape, type UploadFile, type Uploa
 import { offers, type ConvertKind } from "../island/convert";
 import { h, svg } from "../views/dom";
 import { ICONS } from "../views/icons";
+import { PHONE_ICON } from "../views/phone";
 
 const FONT = `system-ui, "Segoe UI Variable Text", "Segoe UI", ${SCRIPT_FONTS}, sans-serif`;
 
@@ -111,6 +112,8 @@ export interface UploadCanvasActions {
   cancel(): void;
   /** The dropped files made into a PDF, a smaller picture or a JPG. */
   convert(kind: ConvertKind): void;
+  /** The dropped files sent to a phone (island/phone.ts). */
+  phoneSend(): void;
   /** What the island's Puhu wears, drawn on this one at his middle (BotEngine.drawWorn). */
   dress(ctx: CanvasRenderingContext2D, R: number, turn: number, layer: "behind" | "front", pitch: number): void;
 }
@@ -127,6 +130,8 @@ export class UploadCanvas {
   private readonly ask: HTMLButtonElement;
   private readonly cancel: HTMLButtonElement;
   private readonly close: HTMLButtonElement;
+  /** Beside the corner's ×: the dropped files to a phone. */
+  private readonly toPhone: HTMLButtonElement;
   /** The files the buttons were made for. */
   private buttonsFor = "";
 
@@ -141,9 +146,11 @@ export class UploadCanvas {
     this.row = h("div", { class: "upload-row" }, this.ask, this.cancel);
     this.row.style.left = `${BUTTONS.x}px`;
     this.row.style.top = `${BUTTONS.y}px`;
+    this.toPhone = h("button", { class: "btn secondary upload-btn upload-phone", onclick: () => actions.phoneSend() },
+      svg(PHONE_ICON, 13, { stroke: 1.8 }), h("span", { text: tl("Send to phone") })) as HTMLButtonElement;
     this.overlay = document.createElement("div");
     this.overlay.id = "upload-overlay";
-    this.overlay.append(this.row, this.close);
+    this.overlay.append(this.row, this.toPhone, this.close);
 
     this.el = document.createElement("div");
     this.el.id = "upload-layer";

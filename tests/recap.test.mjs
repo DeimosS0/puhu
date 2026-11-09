@@ -75,6 +75,7 @@ test("the sample week adds up like the Mac's", () => {
   assert.equal(s.topAgent, "Claude Code");
   assert.equal(s.topProject, "puhu");
   assert.equal(s.busiestDay, "Monday");
+  assert.deepEqual(s.daySessions, [2, 1, 1, 1, 1, 0, 0]);
   assert.equal(s.longestSessionMinutes, 300);
 });
 
@@ -139,7 +140,7 @@ test("decisions outside the week do not count", () => {
 });
 
 test("a history older than the window shows nothing for last week", () => {
-  // Rust prunes past 12 weeks; whatever it keeps from earlier weeks stays out.
+  // Rust prunes past 4 weeks; whatever it keeps from earlier weeks stays out.
   const twelveWeeksAgo = addDays(LAST_MONDAY, -7 * 12);
   const s = summarize(history([turn(twelveWeeksAgo, addDays(twelveWeeksAgo, 0.01))]), LAST_MONDAY);
   assert.equal(s, null);

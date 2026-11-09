@@ -5,6 +5,12 @@ use std::io::Write;
 
 use crate::{platform, settings};
 
+/// Settings → What Puhu keeps → Clear.
+#[tauri::command]
+pub fn log_clear() {
+    let _ = std::fs::remove_file(settings::local_dir().join("puhu.log"));
+}
+
 pub fn line(message: impl AsRef<str>) {
     let t = platform::local_time();
     let stamp = format!(

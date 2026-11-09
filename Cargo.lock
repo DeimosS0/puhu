@@ -3565,7 +3565,7 @@ dependencies = [
 
 [[package]]
 name = "puhu"
-version = "0.6.2"
+version = "0.6.3"
 dependencies = [
  "arboard",
  "cpal",
@@ -3576,6 +3576,7 @@ dependencies = [
  "lopdf",
  "miniz_oxide 0.8.9",
  "png 0.18.1",
+ "qrcode",
  "reqwest 0.12.28",
  "ring",
  "serde",
@@ -3596,7 +3597,7 @@ dependencies = [
 
 [[package]]
 name = "puhu-hook"
-version = "0.6.2"
+version = "0.6.3"
 dependencies = [
  "libc",
  "serde_json",
@@ -3618,6 +3619,12 @@ dependencies = [
  "num-traits",
  "thiserror 1.0.69",
 ]
+
+[[package]]
+name = "qrcode"
+version = "0.14.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d68782463e408eb1e668cf6152704bd856c78c5b6417adaee3203d8f4c1fc9ec"
 
 [[package]]
 name = "quick-xml"

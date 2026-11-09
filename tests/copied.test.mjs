@@ -11,6 +11,10 @@ test("a link shows its site, a colour its swatch, an address itself", () => {
   assert.equal(readCopied("https://hooks.slack.com/services/T000/B000/XXXXXXXX").label, "hooks.slack.com/…");
   assert.deepEqual(readCopied("  #FF7A59 "), { kind: "color", label: "#FF7A59", color: "#FF7A59" });
   assert.equal(readCopied("rgb(12, 34, 56)").kind, "color");
+  assert.equal(readCopied("hsl(210deg 40% 50% / 0.5)").kind, "color");
+  // A colour's parentheses can't carry other style into the swatch.
+  assert.notEqual(readCopied("rgb(;position:fixed;inset:0;background:red;x:)").kind, "color");
+  assert.notEqual(readCopied("rgb(1,2,3);color:red").kind, "color");
   assert.deepEqual(readCopied("ada@example.com"), { kind: "email", label: "ada@example.com" });
 });
 

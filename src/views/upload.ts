@@ -6,6 +6,7 @@
 
 import { h, clear, svg } from "./dom";
 import { ICONS } from "./icons";
+import { PHONE_ICON } from "./phone";
 import { State } from "../core/state";
 import { offers, type ConvertKind } from "../island/convert";
 import type { ViewActions, ViewHost } from "./views";
@@ -36,7 +37,7 @@ function dashedFrame(): SVGSVGElement {
   return el;
 }
 
-export function buildUpload(): ViewHost {
+export function buildUpload(actions: ViewActions): ViewHost {
   const frame = dashedFrame();
   const title = h("div", { class: "drop-title", text: tl("Drop your files here") });
   const tags = h(
@@ -48,7 +49,11 @@ export function buildUpload(): ViewHost {
     "div",
     { class: "card drop-card" },
     frame,
-    h("div", { class: "drop-body" }, title, tags),
+    h("div", { class: "drop-body" }, title, tags,
+      // Or the other way: files from a phone (island/phone.ts).
+      h("div", { class: "drop-more" },
+        h("button", { class: "btn secondary drop-phone", onclick: () => actions.phoneReceive() },
+          svg(PHONE_ICON, 13, { stroke: 1.8 }), h("span", { text: tl("Get from phone") })))),
   );
   const el = h("div", { class: "view" }, card);
 

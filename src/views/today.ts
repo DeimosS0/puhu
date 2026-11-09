@@ -79,6 +79,12 @@ export const Today = {
     tasks = tasks.filter((x) => x.id !== id);
     save();
   },
+  /** Puhu blew the dust off these today: they stay clean until tomorrow. */
+  dusted(ids: readonly string[]) {
+    const today = dayKey(new Date());
+    for (const task of tasks) if (ids.includes(task.id)) task.dusted = today;
+    save();
+  },
   list(): TodayTask[] {
     return todayList(tasks, new Date());
   },
@@ -129,8 +135,6 @@ export function buildToday(host: TodayHost) {
   const el = h("div", { class: "view today" }, card);
 
   let key = "";
-  /** The dust is blown off for as long as the list stays open: redrawn, it stays clean. */
-  let dusted = false;
   /** Ticked, on their way to Puhu: the list is not redrawn under them until they land. */
   const leaving = new Set<string>();
 
@@ -154,9 +158,10 @@ export function buildToday(host: TodayHost) {
       const row = h("div", { class: "today-row", "data-id": task.id }, check, text);
       const tag = tagFor(task, now);
       if (tag) row.append(h("span", { class: tag.waited ? "today-tag waited" : "today-tag", text: tag.text }));
-      // Waited from earlier days: dust on it, more the longer it waits.
+      // Waited from earlier days: dust on it, more the longer it waits, until Puhu
+      // blows it off; it settles again overnight.
       const days = waited(task, now);
-      if (days > 0 && !dusted) {
+      if (days > 0 && task.dusted !== dayKey(now)) {
         row.classList.add("dusty");
         row.style.setProperty("--dust", String(Math.min(1, 0.4 + days * 0.2)));
       }
@@ -291,7 +296,6 @@ export function buildToday(host: TodayHost) {
       draw(false);
     },
     focus() {
-      dusted = false;
       draw(true);
       window.setTimeout(() => field.focus(), 120);
       // Once the rows have unrolled, Puhu blows the dust off the ones that waited.
@@ -301,7 +305,7 @@ export function buildToday(host: TodayHost) {
       window.setTimeout(() => {
         if (!el.classList.contains("on")) return;
         host.react("blow");
-        dusted = true;
+        Today.dusted(dusty.map((row) => row.dataset.id ?? ""));
         window.setTimeout(() => dusty.forEach((row, i) => {
           row.style.setProperty("--d", `${i * 60}ms`);
           row.classList.add("blown");

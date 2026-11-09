@@ -28,7 +28,11 @@ ring = "0.17"
 # Flow dictation and the Notetaker (flow/, notes/, speech/). Speech to text runs
 # on this computer: sherpa-onnx (Apache-2.0) with NVIDIA's Parakeet, linked
 # statically (onnxruntime included), the models downloaded on the user's click.
-sherpa-onnx = { version = "1.13.8", default-features = false, features = ["static"] }
+# Only with the `dictation` feature, below.
+sherpa-onnx = { version = "1.13.8", default-features = false, features = ["static"], optional = true }
+# Send to phone (phone.rs): the QR code of the link, as its modules (the island draws
+# them). No image backends. MIT OR Apache-2.0.
+qrcode = { version = "0.14", default-features = false }
 # The microphone, and the computer's own sound for the Notetaker (WASAPI
 # loopback on Windows, a PulseAudio/PipeWire monitor on Linux). Apache-2.0.
 cpal = "0.18"
@@ -43,6 +47,12 @@ png = "0.18"
 # (mail/pdf.rs); Windows has no PDF library of its own. MIT, pure
 # Rust, default features (clock, rayon) off.
 lopdf = { version = "0.46", default-features = false }
+
+[features]
+# Speech to text for Flow dictation and the Notetaker, both set aside (src/core/shelf.ts).
+# Off by default: then sherpa-onnx is not built at all, and its build script, which
+# downloads its native libraries without checking them, never runs for a release.
+dictation = ["dep:sherpa-onnx"]
 
 [target.'cfg(windows)'.dependencies]
 keyring = { version = "3", features = ["windows-native"] }
@@ -108,6 +118,8 @@ windows = { version = "0.61", features = [
   # disk a letter lives on, the USB device asked to stop.
   "Win32_Devices_DeviceAndDriverInstallation",
   "Win32_System_Ioctl",
+  # Send to phone (phone.rs): whether the network is a work, private or public one.
+  "Win32_Networking_NetworkListManager",
   "Graphics_DirectX",
   "Graphics_DirectX_Direct3D11",
   "Win32_Graphics_Direct3D",

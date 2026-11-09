@@ -122,8 +122,26 @@ pub fn open_url(url: &str) {
         .spawn();
 }
 
+/// Opens `path` as a double click would: a folder in Explorer, a file in its app. Through
+/// the Shell, not explorer's command line, which splits a path at its commas (a folder
+/// named `a,\\host\share\x.exe` would run that program).
 pub fn reveal_folder(path: &str) {
-    let _ = Command::new("explorer").arg(path).spawn();
+    let wide: Vec<u16> = path.encode_utf16().chain(Some(0)).collect();
+    // Its own thread, with its own COM apartment, whatever thread asked.
+    let _ = std::thread::spawn(move || unsafe {
+        let initialized = CoInitializeEx(None, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
+        let mut info = SHELLEXECUTEINFOW {
+            cbSize: std::mem::size_of::<SHELLEXECUTEINFOW>() as u32,
+            fMask: SEE_MASK_FLAG_NO_UI | SEE_MASK_NOASYNC,
+            lpFile: ::windows::core::PCWSTR(wide.as_ptr()),
+            nShow: SW_SHOWNORMAL.0,
+            ..Default::default()
+        };
+        let _ = ShellExecuteExW(&mut info);
+        if initialized.is_ok() {
+            CoUninitialize();
+        }
+    });
 }
 
 /// A file on the clipboard as Explorer puts one there (CF_HDROP, marked a copy, not a
@@ -432,25 +450,67 @@ fn full_screen_busy() -> bool {
 /// The window in front for game mode (game.rs): its program, its title, and whether it
 /// covers its whole monitor while Windows reports a full-screen app.
 pub fn front_window() -> Option<crate::game::Front> {
-    use ::windows::Win32::Foundation::RECT;
-    use ::windows::Win32::Graphics::Gdi::{GetMonitorInfoW, MonitorFromWindow, MONITORINFO, MONITOR_DEFAULTTONULL};
-    use ::windows::Win32::UI::WindowsAndMessaging::GetWindowRect;
     let (id, program) = crate::flow::os::foreground_app()?;
     let hwnd = unsafe { GetForegroundWindow() };
     let mut title = [0u16; 160];
     let len = unsafe { GetWindowTextW(hwnd, &mut title) }.max(0) as usize;
     let title = String::from_utf16_lossy(&title[..len]).trim().to_string();
+    let name = if title.is_empty() { program } else { title.chars().take(60).collect() };
+    Some(crate::game::Front { id, name, full_screen: covers_monitor(hwnd) && full_screen_busy() })
+}
+
+/// The window covers the whole of its monitor.
+fn covers_monitor(hwnd: HWND) -> bool {
+    use ::windows::Win32::Foundation::RECT;
+    use ::windows::Win32::Graphics::Gdi::{GetMonitorInfoW, MonitorFromWindow, MONITORINFO, MONITOR_DEFAULTTONULL};
+    use ::windows::Win32::UI::WindowsAndMessaging::GetWindowRect;
     let mut rect = RECT::default();
     let mut info = MONITORINFO { cbSize: std::mem::size_of::<MONITORINFO>() as u32, ..Default::default() };
-    let covers = unsafe {
+    let known = unsafe {
         let monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONULL);
         GetWindowRect(hwnd, &mut rect).is_ok() && !monitor.is_invalid() && GetMonitorInfoW(monitor, &mut info).as_bool()
-    } && rect.left <= info.rcMonitor.left
+    };
+    known
+        && rect.left <= info.rcMonitor.left
         && rect.top <= info.rcMonitor.top
         && rect.right >= info.rcMonitor.right
-        && rect.bottom >= info.rcMonitor.bottom;
-    let name = if title.is_empty() { program } else { title.chars().take(60).collect() };
-    Some(crate::game::Front { id, name, full_screen: covers && full_screen_busy() })
+        && rect.bottom >= info.rcMonitor.bottom
+}
+
+/// A screen capture's frozen screen is over the island: Win+Shift+S, ShareX, Lightshot
+/// and the like put an always-on-top window over the whole monitor that takes the mouse.
+/// The island stays under it, frozen in the picture with the rest, rather than coming
+/// up live over it. Only the few always-on-top windows above the island are looked at.
+fn capture_over(island: HWND) -> bool {
+    use ::windows::Win32::UI::WindowsAndMessaging::{GetTopWindow, GW_HWNDNEXT, WS_EX_TOPMOST, WS_EX_TRANSPARENT};
+    #[link(name = "dwmapi")]
+    unsafe extern "system" {
+        fn DwmGetWindowAttribute(hwnd: HWND, attribute: u32, value: *mut std::ffi::c_void, size: u32) -> i32;
+    }
+    const DWMWA_CLOAKED: u32 = 14;
+    let own = std::process::id();
+    let mut next = unsafe { GetTopWindow(None) }.ok();
+    for _ in 0..64 {
+        let Some(hwnd) = next.filter(|&h| h != island) else { return false };
+        let ex = unsafe { GetWindowLongPtrW(hwnd, GWL_EXSTYLE) } as u32;
+        let mut pid = 0u32;
+        let mut cloaked = 0u32;
+        unsafe {
+            GetWindowThreadProcessId(hwnd, Some(&mut pid as *mut u32));
+            DwmGetWindowAttribute(hwnd, DWMWA_CLOAKED, &mut cloaked as *mut u32 as _, 4);
+        }
+        if ex & WS_EX_TOPMOST.0 != 0
+            && ex & WS_EX_TRANSPARENT.0 == 0
+            && pid != own
+            && cloaked == 0
+            && unsafe { IsWindowVisible(hwnd) }.as_bool()
+            && covers_monitor(hwnd)
+        {
+            return true;
+        }
+        next = unsafe { GetWindow(hwnd, GW_HWNDNEXT) }.ok();
+    }
+    false
 }
 
 /// How long since the last keyboard or mouse input, anywhere on this session.
@@ -480,7 +540,7 @@ static ON_TOP: std::sync::atomic::AtomicIsize = std::sync::atomic::AtomicIsize::
 /// marked always-on-top would otherwise sit over it, and a few things (Explorer
 /// restarting, a display change) can drop the island's own mark. Each time the
 /// foreground changes, the island goes back to the top of the always-on-top band;
-/// not over a full-screen app or a presentation. Event-driven: nothing runs between
+/// not over a full-screen app, a presentation or a screen capture's frozen screen. Event-driven: nothing runs between
 /// two switches. Called on the main thread, whose message loop delivers the events.
 pub fn keep_on_top(win: &WebviewWindow) {
     use ::windows::Win32::UI::Accessibility::SetWinEventHook;
@@ -528,8 +588,12 @@ unsafe extern "system" fn foreground_changed(
     // event arrives, and would end up over the island again.
     std::thread::spawn(move || {
         std::thread::sleep(std::time::Duration::from_millis(200));
+        let island = HWND(raw as *mut _);
+        if capture_over(island) {
+            return;
+        }
         let _ = unsafe {
-            SetWindowPos(HWND(raw as *mut _), Some(HWND_TOPMOST), 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER)
+            SetWindowPos(island, Some(HWND_TOPMOST), 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER)
         };
     });
 }

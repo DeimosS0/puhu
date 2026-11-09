@@ -78,6 +78,7 @@ test("signs of an earlier install", () => {
   assert.equal(usedBefore({ consent: false, history: empty, dictations: 0, notes: 0 }), true, "the update question was answered");
   assert.equal(usedBefore({ consent: null, history: { ...empty, decisions: [{ agent: "a", date: 1, decision: "allow" }] }, dictations: 0, notes: 0 }), true);
   assert.equal(usedBefore({ consent: null, history: empty, dictations: 2, notes: 0 }), true);
+  assert.equal(usedBefore({ consent: null, history: { ...empty, totals: { sessions: 4, seconds: 60, linesAdded: 0, answered: 0 } }, dictations: 0, notes: 0 }), true, "only weeks past the window");
   assert.equal(usedBefore({ consent: null, history: empty, dictations: 0, notes: 1 }), true);
 });
 
@@ -105,6 +106,14 @@ test("your Puhu so far: every kept number, zeros left out", () => {
     { kind: "words", value: 1234 },
     { kind: "saved", value: 18 },
     { kind: "calls", value: 2 },
+  ]);
+  // Weeks past recap.rs's window come as totals and add to what is still kept.
+  const older = { ...history, totals: { sessions: 10, seconds: 3000, linesAdded: 400, answered: 5 } };
+  assert.deepEqual(soFar({ history: older, flow: null, calls: 0 }), [
+    { kind: "agentSessions", value: 12 },
+    { kind: "agentTime", value: 75 },
+    { kind: "linesAdded", value: 500 },
+    { kind: "approvals", value: 8 },
   ]);
   assert.deepEqual(soFar({ history: null, flow: null, calls: 0 }), [], "a quiet install: nothing to count");
   assert.deepEqual(soFar({ history: null, flow: { words: 50, minutesSaved: 0, dictations: 3 }, calls: Number.NaN }), [{ kind: "words", value: 50 }]);

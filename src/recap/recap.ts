@@ -12,9 +12,12 @@ import { Bridge, IS_TAURI } from "../core/bridge";
 import type { IslandViewName } from "../core/layout";
 import { State } from "../core/state";
 import {
-  DEFAULT_PREFS, dayKey, mondayOf, previousWeekStart, sampleHistory, shouldAutoShow, summarize,
+  DEFAULT_PREFS, addDays, dayKey, mondayOf, previousWeekStart, sampleHistory, shouldAutoShow, summarize,
   type RecapPrefs, type WeeklySummary,
 } from "./summary";
+import { SKIES_KEY, keepSky, readSkies, trend, weekSky, type WeekSky } from "./sky";
+import { focusRounds } from "../island/progress";
+import { Today } from "../views/today";
 
 /** What the recap needs from the island. */
 export interface RecapHost {
@@ -29,21 +32,47 @@ const SHOW_DELAY_MS = 1500;
 
 class RecapController {
   summary: WeeklySummary | null = null;
+  /** Last week's sky (recap/sky.ts), and how it compares with the weeks before. */
+  sky: WeekSky | null = null;
+  compare: ReturnType<typeof trend> = null;
   prefs: RecapPrefs = { ...DEFAULT_PREFS };
   /** Bumped on every load, so the view knows to rebuild (and leave share mode). */
   version = 0;
   private checking = false;
 
-  /** Reads last week from Rust. A plain browser (`npm run dev`) gets the sample week. */
-  async load(now = new Date()): Promise<WeeklySummary | null> {
+  /**
+   * Reads last week, and the week before to compare with: the agents' history from
+   * Rust, focus rounds, things done, working time if counted. A plain browser
+   * (`npm run dev`) gets the sample week. True when there is anything to show.
+   */
+  async load(now = new Date()): Promise<boolean> {
     const start = previousWeekStart(now);
-    const history = IS_TAURI
-      ? await Bridge.recapHistory(start.getTime() / 1000)
-      : sampleHistory(start);
+    const before = addDays(start, -7);
+    const [history, work] = IS_TAURI
+      ? await Promise.all([Bridge.recapHistory(before.getTime() / 1000), Bridge.workSlots(before.getTime() / 1000)])
+      : [sampleHistory(start), []];
     this.prefs = { ...DEFAULT_PREFS, ...(history?.prefs ?? {}) };
     this.summary = history ? summarize(history, start) : null;
+    const input = {
+      turns: history?.turns ?? [],
+      focus: focusRounds(),
+      done: Today.all().map((x) => x.doneAt).filter((at): at is number => typeof at === "number"),
+      work: work ?? [],
+    };
+    const sky = weekSky({ weekStart: start, ...input });
+    const last = weekSky({ weekStart: before, ...input });
+    // The week is kept (a year of them, no hour in them), and the earlier ones read.
+    let kept = readSkies(read(SKIES_KEY));
+    const earlier = kept.filter((s) => s.week < dayKey(start));
+    const stars = (x: WeekSky) => x.timeStars + x.doneStars;
+    this.compare = trend(stars(sky), stars(last), earlier);
+    if (stars(sky) > 0) {
+      kept = keepSky(kept, { week: dayKey(start), title: sky.title, stars: stars(sky), minutes: sky.minutes, done: sky.doneStars });
+      write(SKIES_KEY, JSON.stringify(kept));
+    }
+    this.sky = sky;
     this.version++;
-    return this.summary;
+    return this.summary != null || stars(sky) > 0;
   }
 
   /** Tray → Weekly recap. Shows the card even for an empty week. */
@@ -81,6 +110,22 @@ class RecapController {
   async setHideProjects(hide: boolean) {
     this.prefs.hideProjects = hide;
     await Bridge.recapSetHideProjects(hide);
+  }
+}
+
+function read(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function write(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // Kept for this run only.
   }
 }
 

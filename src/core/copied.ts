@@ -74,7 +74,9 @@ function tokens(text: string): string[] {
 
 export function readCopied(text: string): CopiedPeek {
   const t = text.trim();
-  if (/^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(t) || /^(?:rgba?|hsla?)\([^)]*\)$/i.test(t)) {
+  // Inside the parentheses only what a colour is written with: a copied text can't
+  // carry a style of its own into the swatch (`rgb(;position:fixed…)`).
+  if (/^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(t) || /^(?:rgba?|hsla?)\([\d\s.,%/+-]*(?:deg|grad|rad|turn)?[\d\s.,%/+-]*\)$/i.test(t)) {
     return { kind: "color", label: t, color: t };
   }
   if (/^https?:\/\/\S+$/i.test(t)) {

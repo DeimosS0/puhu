@@ -120,9 +120,14 @@ installs only one he has signed.
 ## Privacy
 
 - No telemetry. Network requests only go to the services you set up yourself.
+- Puhu keeps as little as he can, for as short a time as he can: the last copied
+  picture for 15 minutes, a dropped file's copy for a day, agent sessions for 4 weeks.
+  Settings → General → **What Puhu keeps** lists all of it, each with its Clear.
 - Keys and tokens live in Windows Credential Manager, never in a file.
 - Your focus history is a log on this computer (`%APPDATA%\Puhu\progress.log`),
   signed so an edit is noticed. Nothing about it leaves the machine.
+- The whole list, and what goes over the network: [PRIVACY.md](PRIVACY.md). Found a
+  security problem? [SECURITY.md](SECURITY.md) says how to report it privately.
 - Puhu never approves a permission, sends a message or an email without your click.
 
 ## Claude Code

@@ -17,6 +17,7 @@ export type IslandViewName =
   | "quick"
   | "timerDone"
   | "usb"
+  | "phone"
   | "mail"
   | "prompt"
   | "searching"
@@ -97,6 +98,8 @@ export const VIEW_LAYOUTS: Record<IslandViewName, ViewLayout> = {
   timerDone: { height: 150, botX: 62, botY: null, botDiameter: 58, agentMode: "none" },
   // The USB drives plugged in, with Open and Eject safely (views/usb.ts).
   usb: { height: 160, botX: 58, botY: null, botDiameter: 52, agentMode: "none" },
+  // Send to phone, or from it (views/phone.ts): Puhu holding up the QR code like a sign.
+  phone: { height: 230, botX: 60, botY: 160, botDiameter: 50, agentMode: "none" },
   mail: { height: 240, botX: 56, botY: null, botDiameter: 46, agentMode: "column" },
   prompt: { height: 160, botX: 52, botY: null, botDiameter: 44, agentMode: "column" },
   searching: { height: 160, botX: 52, botY: null, botDiameter: 44, agentMode: "column" },
@@ -104,9 +107,9 @@ export const VIEW_LAYOUTS: Record<IslandViewName, ViewLayout> = {
   note: { height: 160, botX: 60, botY: null, botDiameter: 50, agentMode: "column" },
   settings: { height: 160, botX: 54, botY: null, botDiameter: 46, agentMode: "none" },
   greeting: { height: 150, botX: 320, botY: 90, botDiameter: 0, agentMode: "none" },
-  // 24 taller than a card, for the two lines with top agent, project, busiest
-  // day, longest session, permissions and questions.
-  recap: { height: 184, botX: 62, botY: null, botDiameter: 58, agentMode: "column" },
+  // The week's time and its bars beside the numbers and the lines with top agent,
+  // project, longest session, permissions and questions.
+  recap: { height: 240, botX: 62, botY: null, botDiameter: 58, agentMode: "column" },
   wardrobe: { height: 160, botX: 68, botY: null, botDiameter: 58, agentMode: "none" },
   // New version: Puhu on the left, the version and Update now.
   update: { height: 160, botX: 62, botY: null, botDiameter: 58, agentMode: "none" },

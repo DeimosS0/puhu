@@ -108,7 +108,8 @@ export const SETTINGS_ENTRIES: SettingsSearchEntry[] = [
   { id: "general.hotkey", page: "general", title: "Hotkey", terms: ["Show island with shortcut", "Shortcut"] },
   { id: "general.startup", page: "general", title: "Startup", terms: ["Launch at startup"] },
   { id: "general.update", page: "general", title: "update.settings.title", terms: [] },
-  { id: "general.recap", page: "general", title: "Weekly recap", terms: ["Keep a history of my coding sessions", "Hide project names in shared images", "Clear history"] },
+  { id: "general.kept", page: "general", title: "What Puhu keeps", terms: ["Focus rounds", "Agent sessions", "Copied pictures", "Dropped files", "Puhu's log"] },
+  { id: "general.recap", page: "general", title: "Weekly recap", terms: ["Keep a history of my coding sessions", "Count my working time"] },
   { id: "general.language", page: "general", title: "Language", terms: ["Restart Puhu"] },
 
   // Island → Pills, Agents, Chat, Integrations, Voice, Shortcuts

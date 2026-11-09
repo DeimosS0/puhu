@@ -5,7 +5,7 @@ import { afterEach, beforeEach, mock, test } from "node:test";
 import assert from "node:assert/strict";
 import { calls, internals, sent } from "./tauri.mjs";
 import { Recap } from "../src/recap/recap.ts";
-import { sampleHistory, previousWeekStart } from "../src/recap/summary.ts";
+import { addDays, sampleHistory, previousWeekStart } from "../src/recap/summary.ts";
 import { State } from "../src/core/state.ts";
 
 const MONDAY_9AM = new Date(2026, 9, 5, 9, 0);
@@ -48,8 +48,8 @@ test("on Monday morning the recap opens once, after a short delay", async () => 
   assert.deepEqual(shown, ["recap"]);
   assert.deepEqual(sent("recap_mark_shown"), [{ week: "2026-10-05" }]);
   assert.equal(Recap.summary.sessionCount, 6);
-  // The history was asked from last Monday on.
-  assert.equal(sent("recap_history")[0].since, previousWeekStart(MONDAY_9AM).getTime() / 1000);
+  // The history was asked from the Monday before last on: last week, and the one to compare it with.
+  assert.equal(sent("recap_history")[0].since, addDays(previousWeekStart(MONDAY_9AM), -7).getTime() / 1000);
 });
 
 test("not twice in the same week, not on Tuesday, not before 8", async () => {

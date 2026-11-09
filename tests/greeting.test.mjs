@@ -4,7 +4,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { GREETING_END, GREETING_W, greetingPose, puhuBounds } from "../src/puhu/greeting.ts";
+import { GREETING_END, GREETING_W, greetingPose, paced, puhuBounds } from "../src/puhu/greeting.ts";
 import { Tracked } from "../src/core/anim.ts";
 import { COMPACT_W, NOTCH_H, NOTCH_W, VIEW_LAYOUTS } from "../src/core/layout.ts";
 
@@ -55,16 +55,27 @@ test("Puhu stays inside the island when the greeting is cut short", () => {
 });
 
 test("he flies in, shakes his feathers, looks round, hoots, waves and sits in the middle", () => {
-  const flying = greetingPose(0.4);
+  // The beats, at their beat times (greetPose), wherever the pace puts them.
+  const flying = greetingPose(paced(0.4));
   assert.ok(flying.wings > 0.9 && flying.y < 90, `flying in: wings ${flying.wings}, y ${flying.y}`);
-  assert.ok(greetingPose(1.2).fluff > 0.9, "feathers puffed up for the shake");
-  assert.ok(Math.abs(greetingPose(1.68).swivel) > 1, "looking round");
-  assert.equal(greetingPose(2.1).eye, "content", "hooting");
-  const waving = greetingPose(2.6);
+  assert.ok(greetingPose(paced(1.2)).fluff > 0.9, "feathers puffed up for the shake");
+  assert.ok(Math.abs(greetingPose(paced(1.68)).swivel) > 1, "looking round");
+  assert.equal(greetingPose(paced(2.1)).eye, "content", "hooting");
+  const waving = greetingPose(paced(2.6));
   assert.ok(waving.wings > 0.9 && waving.wave >= 0, "waving a wing");
-  const back = greetingPose(3.6);
+  const back = greetingPose(paced(3.6));
   assert.equal(back.x, 320);
   assert.equal(back.wings, 0);
+});
+
+test("unhurried but short: each beat takes its time, the whole hello under six seconds", () => {
+  assert.ok(GREETING_END > 5 && GREETING_END < 6, `ends at ${GREETING_END}`);
+  // The flight down, the look right and left, the wave: each longer than written.
+  assert.ok(paced(0.64) - paced(0.2) > 0.6, "a flight, not a drop");
+  assert.ok(paced(2.06) - paced(1.5) > 0.8, "he looks round, not about");
+  assert.ok(paced(2.96) - paced(2.38) > 0.7, "a wave, not a flutter");
+  // Time only moves forward.
+  for (let beat = 0; beat < 5; beat += 0.01) assert.ok(paced(beat + 0.01) > paced(beat));
 });
 
 test("he lands where the compact island's Puhu sits", () => {

@@ -1,7 +1,7 @@
 {
   "name": "puhu",
   "private": true,
-  "version": "0.6.2",
+  "version": "0.6.3",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -12,9 +12,11 @@
     "tauri": "tauri",
     "predev": "cargo build --release -p puhu-hook",
     "prebuild": "cargo build --release -p puhu-hook",
-    "pack": "tauri build && node scripts/pack.mjs"
+    "pack": "tauri build && node scripts/pack.mjs",
+    "phone-page": "node scripts/phone-page.mjs"
   },
   "devDependencies": {
+    "@noble/ciphers": "2.4.0",
     "@tauri-apps/cli": "^2",
     "typescript": "^5.6.0",
     "vite": "^6"

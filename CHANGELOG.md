@@ -1,5 +1,42 @@
 # Changelog
 
+## 0.6.3
+
+Your week as a sky, files to and from your phone, and a Puhu who keeps less and says what he
+keeps.
+
+- **The week's sky**: Monday's card now tells anyone's week, not only an agent's. Every half
+  hour with twenty minutes of a focus round, an agent at work or (only if you turn it on) a
+  coding, design or writing program in front is a star, coloured by what filled it, and every
+  thing ticked on Today's list is one more; each day's stars make a constellation. A title
+  for the week (Night Owl, Early Bird, Focus Master, Weekend Hero…), the brightest day,
+  three numbers and how it compares, never pointing out a lighter week. Share makes a tall
+  picture of Puhu on a branch under your sky, dressed for the title, with no project,
+  program or time of day in it; the agents' week is a page of its own. The card asks once
+  whether to count working time: a minute counts only while a counted program is in front
+  and the keyboard or mouse was used in the last two minutes, kept 14 days. A short summary
+  of each week is kept a year.
+- **Send to phone, and get from it**: drop files on the island and pick Send to phone, or
+  Get from phone in the + tab. Puhu holds up a QR code and the phone's camera opens a page in
+  its own browser, no app, iPhone or Android. Files go straight over your Wi-Fi or the
+  phone's hotspot, not through the internet, every piece sealed end to end with a key that
+  is only in the QR code; one phone a session, 10 minutes at most, 500 MB a file. Work
+  networks are refused, a public one is asked once. What comes from the phone lands in
+  Downloads with Windows' internet mark and is never opened.
+- **What Puhu keeps**: Settings → General lists everything Puhu remembers and for how long,
+  each with a Clear, and PRIVACY.md says the same. He keeps less: copied pictures 15 minutes
+  (the newest two), a dropped file a day, agent sessions 4 weeks (their totals stay).
+- **Safer**: a mail's text can no longer run as PowerShell (a curly quote in an attachment's
+  name), and the chat's Mail switch is set aside with Mail; a token never goes over plain
+  http to another machine or follows a redirect; the agents' relay pipe opens only to your
+  account and talks only to Puhu; folders open without a command line; speech recognition's
+  downloaded libraries are out of the build; only the per-user setup.exe ships, no .msi.
+  SECURITY.md says how to report a problem privately.
+- Fixes: the launch hello takes its time; Puhu no longer climbs over Win+Shift+S's frozen
+  screen; the screenshot viewer's Save and Open no longer touch a wide picture; Today blows
+  the dust off an old thing once a day, not each time it opens; a copied colour can no
+  longer restyle its swatch.
+
 ## 0.6.2
 
 Puhu lends a hand: with files, timers, USB drives, and the island itself.

@@ -390,6 +390,7 @@ pub struct Take {
 
 /// Long audio in stretches the model takes at once, each cut at the quietest
 /// 100 ms near its end. Returns (offset in samples, samples).
+#[cfg_attr(not(feature = "dictation"), allow(dead_code))]
 pub fn split_for_model(samples: &[f32], rate: u32, max_seconds: f64) -> Vec<(usize, &[f32])> {
     let max = (max_seconds * rate as f64) as usize;
     let window = (rate as usize) / 10;

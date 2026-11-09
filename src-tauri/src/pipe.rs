@@ -61,6 +61,9 @@ pub struct Pending(pub Mutex<HashMap<String, mpsc::Sender<Reply>>>);
 
 static COUNTER: AtomicU64 = AtomicU64::new(1);
 
+/// How long a client has to send its event once connected.
+const FIRST_LINE: Duration = Duration::from_secs(5);
+
 /// `\\.\pipe\puhu-<sid>` — must match puhu-hook's `pipe_path()` exactly.
 #[cfg(windows)]
 pub fn pipe_name() -> String {
@@ -75,7 +78,7 @@ pub fn start(app: AppHandle) {
         let name = pipe_name();
         // first_pipe_instance also means we refuse to join a pipe somebody else
         // already owns under our name, rather than serving on top of it.
-        let mut server = match ServerOptions::new().first_pipe_instance(true).create(&name) {
+        let mut server = match create_pipe(ServerOptions::new().first_pipe_instance(true), &name) {
             Ok(s) => s,
             Err(err) => {
                 log::line(format!("cannot open the relay pipe: {err}"));
@@ -85,14 +88,14 @@ pub fn start(app: AppHandle) {
         loop {
             if server.connect().await.is_err() {
                 // A failed instance never connects again (#853): listen on a fresh one.
-                if let Ok(fresh) = ServerOptions::new().create(&name) {
+                if let Ok(fresh) = create_pipe(&ServerOptions::new(), &name) {
                     server = fresh;
                 }
                 tokio::time::sleep(Duration::from_millis(200)).await;
                 continue;
             }
             // Hand the connected instance to a task and listen on a fresh one.
-            let next = match ServerOptions::new().create(&name) {
+            let next = match create_pipe(&ServerOptions::new(), &name) {
                 Ok(s) => s,
                 Err(err) => {
                     log::line(format!("cannot reopen the relay pipe: {err}"));
@@ -104,6 +107,33 @@ pub fn start(app: AppHandle) {
             tauri::async_runtime::spawn(async move { handle(app, connected).await });
         }
     });
+}
+
+/// A pipe instance only this account and SYSTEM may open: the default also let everyone
+/// (low-integrity processes and other users included) open it for reading.
+#[cfg(windows)]
+fn create_pipe(options: &ServerOptions, name: &str) -> std::io::Result<NamedPipeServer> {
+    use windows::core::HSTRING;
+    use windows::Win32::Foundation::{LocalFree, HLOCAL};
+    use windows::Win32::Security::Authorization::ConvertStringSecurityDescriptorToSecurityDescriptorW;
+    use windows::Win32::Security::{PSECURITY_DESCRIPTOR, SECURITY_ATTRIBUTES};
+    // Without our SID there is no list to give it: no pipe rather than an open one (the
+    // relay can't vouch for a server without its SID either).
+    let Some(sid) = crate::platform::current_user_sid() else {
+        return Err(std::io::Error::other("the user's SID can't be read"));
+    };
+    let sddl = HSTRING::from(format!("D:P(A;;GA;;;SY)(A;;GA;;;{sid})"));
+    let mut descriptor = PSECURITY_DESCRIPTOR::default();
+    unsafe { ConvertStringSecurityDescriptorToSecurityDescriptorW(&sddl, 1, &mut descriptor, None) }
+        .map_err(std::io::Error::other)?;
+    let mut attributes = SECURITY_ATTRIBUTES {
+        nLength: std::mem::size_of::<SECURITY_ATTRIBUTES>() as u32,
+        lpSecurityDescriptor: descriptor.0,
+        bInheritHandle: false.into(),
+    };
+    let made = unsafe { options.create_with_security_attributes_raw(name, (&mut attributes as *mut SECURITY_ATTRIBUTES).cast()) };
+    let _ = unsafe { LocalFree(Some(HLOCAL(descriptor.0))) };
+    made
 }
 
 #[cfg(target_os = "linux")]
@@ -189,17 +219,24 @@ impl Relay for tokio::net::UnixStream {
 async fn handle(app: AppHandle, mut pipe: impl Relay) {
     let mut buf = Vec::new();
     let mut chunk = [0u8; 4096];
-    loop {
-        match pipe.read(&mut chunk).await {
-            Ok(0) => break,
-            Ok(n) => {
-                buf.extend_from_slice(&chunk[..n]);
-                if buf.contains(&b'\n') || buf.len() > MAX_PAYLOAD {
-                    break;
+    // The relay writes its event the moment it connects: a client that says nothing for
+    // a few seconds is let go rather than holding an instance for ever.
+    let read = async {
+        loop {
+            match pipe.read(&mut chunk).await {
+                Ok(0) => return true,
+                Ok(n) => {
+                    buf.extend_from_slice(&chunk[..n]);
+                    if buf.contains(&b'\n') || buf.len() > MAX_PAYLOAD {
+                        return true;
+                    }
                 }
+                Err(_) => return false,
             }
-            Err(_) => return,
         }
+    };
+    if !matches!(tokio::time::timeout(FIRST_LINE, read).await, Ok(true)) {
+        return;
     }
     let line = match buf.iter().position(|b| *b == b'\n') {
         Some(i) => &buf[..i],

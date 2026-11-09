@@ -23,6 +23,19 @@ C5, D5, E5, G5, A5 = 523.25, 587.33, 659.25, 783.99, 880.0
 C6, E6, G6, C7 = 1046.5, 1318.5, 1568.0, 2093.0
 
 
+# greeting.ts's PACE: [beat time, seconds] pairs, straight lines in between.
+PACE = [(0, 0), (0.2, 0.25), (0.64, 0.95), (0.96, 1.4), (0.98, 1.55), (1.46, 2.2), (1.5, 2.3),
+        (2.06, 3.15), (2.38, 3.65), (2.96, 4.4), (4.6, 5.7)]
+
+
+def paced(beat):
+    """Seconds since the greeting's start for a beat time, as greeting.ts's paced()."""
+    for (a0, a1), (b0, b1) in zip(PACE, PACE[1:]):
+        if beat <= b0:
+            return a1 + (beat - a0) / (b0 - a0) * (b1 - a1)
+    return PACE[-1][1] + (beat - PACE[-1][0])
+
+
 def silence(seconds):
     return np.zeros(int(SR * seconds))
 
@@ -176,23 +189,24 @@ def make():
     s["gulp"] = chord((tone(520, 0.2, 170, decay=0.08, curve=0.5), 0), (tone(140, 0.25, 90, decay=0.08) * 0.6, 0.12))
     s["sleep"] = tone(A4, 0.4, 330, decay=0.2, partials=((1, 1), (2, 0.08)), curve=0.8)
     s["yawn"] = chord((tone(480, 0.62, 340, decay=0.3, vibrato=(3, 0.04), curve=1.4) * np.concatenate([np.linspace(0.4, 1, int(SR * 0.2)), np.ones(int(SR * 0.62) - int(SR * 0.2))]), 0), (noise(0.6, 400, 2000, 0.1, 0.25) * 0.12, 0))
-    # The launch, on greeting.ts's times: wings beating on the way down, the landing,
-    # the feathers shaken out, two glances, hoo-hoo, a wing waved, settling in.
-    flaps = [(sweep(0.09, 500, 1600, level=0.22) * (0.6 + 0.4 * i / 3), 0.2 + i * 0.125) for i in range(4)]
-    ruffle = [(noise(0.035, 1500, 6000, 0.002, 0.012) * 0.5 * (1 - i / 5), 1.06 + i * 0.045) for i in range(6)]
+    # The launch, on greeting.ts's beat times through its PACE table: wings beating on
+    # the way down, the landing, the feathers shaken out, two glances, hoo-hoo, a wing
+    # waved, settling in.
+    flaps = [(sweep(0.09, 500, 1600, level=0.22) * (0.6 + 0.4 * i / 3), paced(0.2 + i * 0.125)) for i in range(4)]
+    ruffle = [(noise(0.035, 1500, 6000, 0.002, 0.012) * 0.5 * (1 - i / 5), paced(1.06 + i * 0.045)) for i in range(6)]
     s["greeting"] = chord(
         *flaps,
-        (tone(150, 0.16, 110, decay=0.05) * 0.55, 0.64),
-        (s["pop"] * 0.9, 0.65),
+        (tone(150, 0.16, 110, decay=0.05) * 0.55, paced(0.64)),
+        (s["pop"] * 0.9, paced(0.65)),
         *ruffle,
-        (tone(1500, 0.05, decay=0.012) * 0.18, 1.52),
-        (tone(1320, 0.05, decay=0.012) * 0.18, 1.76),
-        (hoot(G4, 0.18), 2.03),
-        (hoot(F4, 0.3), 2.21),
-        (sweep(0.18, 900, 2400, level=0.08), 2.38),
-        (bell(G6, 0.5, 0.14) * 0.3, 2.44),
-        (bell(C7, 0.4, 0.1) * 0.25, 2.72),
-        (tone(G5, 0.45, C5, decay=0.18, curve=0.6) * 0.3, 2.9),
+        (tone(1500, 0.05, decay=0.012) * 0.18, paced(1.52)),
+        (tone(1320, 0.05, decay=0.012) * 0.18, paced(1.76)),
+        (hoot(G4, 0.18), paced(2.03)),
+        (hoot(F4, 0.3), paced(2.21)),
+        (sweep(0.18, 900, 2400, level=0.08), paced(2.38)),
+        (bell(G6, 0.5, 0.14) * 0.3, paced(2.44)),
+        (bell(C7, 0.4, 0.1) * 0.25, paced(2.72)),
+        (tone(G5, 0.45, C5, decay=0.18, curve=0.6) * 0.3, paced(2.9)),
     )
     return s
 

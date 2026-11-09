@@ -19,6 +19,7 @@ import type { ViewHost } from "./views";
 import { N_, t, tl } from "../i18n/i18n";
 import { HOST_OS } from "../core/pills";
 import { MailChat, splitPlan } from "../core/mail";
+import { SHELVED } from "../core/shelf";
 import { mailPlanCard } from "./mailplan";
 
 const STRINGS = {
@@ -54,7 +55,9 @@ function bubble(message: ChatMessage): HTMLElement {
   // A mail plan (```puhu-mail) is never shown as raw JSON: its card goes under the answer.
   const { prose, plan } = splitPlan(message.content);
   renderMarkdown(reply, prose);
-  if (plan) reply.append(mailPlanCard(`chat-${message.id}-${message.content.length}`, "", message.content));
+  // Never while Mail is set aside: a reply that writes a plan anyway (told to by something
+  // it read) gets no card, and nothing reaches Outlook.
+  if (plan && !SHELVED.mail) reply.append(mailPlanCard(`chat-${message.id}-${message.content.length}`, "", message.content));
   return h("div", { class: "chat-row" }, reply);
 }
 
@@ -273,7 +276,8 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
     mailBtn.classList.toggle("on", MailChat.on);
   });
   const modelRow = h("div", { class: "model-row" }, modelBtn);
-  if (HOST_OS === "windows") modelRow.prepend(mailBtn);
+  // Set aside with the rest of Mail (core/shelf.ts): the switch shows only once it is back.
+  if (HOST_OS === "windows" && !SHELVED.mail) modelRow.prepend(mailBtn);
 
   const body = h("div", { class: "chat-body" });
   const picker = buildPicker(() => {

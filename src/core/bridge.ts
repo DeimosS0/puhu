@@ -190,6 +190,17 @@ export const Bridge = {
   usbOpen: (letter: string) => call<void>("usb_open", { letter }),
   /** Ejected safely; rejects with why when something holds a file on it. */
   usbEject: (letter: string) => callOrThrow<void>("usb_eject", { letter }),
+  /** Send to phone, and from it (phone.rs, docs/send-to-phone.md). */
+  /** Working time for the weekly sky (activity.rs): half hours from `since` (Unix s). */
+  workSlots: (since: number) => call<[number, [number, number, number]][]>("work_slots", { since: Math.floor(since) }),
+  workClear: () => call<void>("work_clear"),
+  phoneNetwork: () => call<{ state: "ok" | "ask" | "work" | "none" }>("phone_network"),
+  phoneTrustNetwork: () => call<void>("phone_trust_network"),
+  phoneForgetNetworks: () => call<void>("phone_forget_networks"),
+  phoneSend: (paths: string[]) => callOrThrow<PhoneStarted>("phone_send", { paths }),
+  phoneReceive: () => callOrThrow<PhoneStarted>("phone_receive"),
+  phoneCancel: () => call<void>("phone_cancel"),
+  phoneRevealDownloads: () => call<void>("phone_reveal_downloads"),
   /** Ask the screen: the screen under the pointer, in the inbox (screen_ask.rs). */
   askScreen: () => callOrThrow<{ name: string; path: string; thumb: string; game: boolean }>("ask_screen"),
   /** "Ask Puhu" on a copied error: the clipboard's text, in the inbox (copied.rs). */
@@ -205,6 +216,8 @@ export const Bridge = {
   gameRefresh: () => call<void>("game_refresh"),
   progressAdd: (event: object) => callOrThrow<void>("progress_add", { event }),
   progressRead: () => call<{ events: unknown[]; edited: boolean }>("progress_read"),
+  /** Settings → What Puhu keeps: focus play starts over. */
+  progressClear: () => callOrThrow<void>("progress_clear"),
   /** Tells the other windows the progress log changed (a purchase in the Nest). */
   progressChanged: () => (IS_TAURI ? emit("progress-changed") : Promise.resolve()),
   /** Only ever tells you whether a key exists — never its value. */
@@ -302,6 +315,10 @@ export const Bridge = {
   systemVolumeStep: (steps: number) => call<void>("system_volume_step", { steps }),
   /** Opens one of the images the screenshot preview kept (src-tauri/src/screenshot.rs). */
   openScreenshot: (name: string) => call<void>("open_screenshot", { name }),
+  /** Settings → What Puhu keeps: the copied pictures, the dropped files' copies, Puhu's log. */
+  clearScreenshots: () => call<void>("clear_screenshots"),
+  clearInbox: () => call<void>("clear_inbox"),
+  logClear: () => call<void>("log_clear"),
   /** The viewer's larger copy of one, as a data URL. */
   screenshotView: (name: string) => call<string | null>("screenshot_view", { name }),
   /** Saves one as a PNG where Windows keeps its screenshots; true once it is written. */
@@ -491,6 +508,22 @@ export type BridgeEvent =
   | { name: "screen-changed"; payload: null };
 
 /** A USB drive plugged in (usb.rs Drive). */
+/** A Send to phone session just started: its link, the QR code's modules, its seconds. */
+export interface PhoneStarted {
+  url: string;
+  qrSize: number;
+  qrBits: string;
+  expires: number;
+}
+
+/** What phone.rs tells of its session (event "phone"). */
+export type PhoneNews =
+  | { state: "claimed"; device: string }
+  | { state: "progress"; file: number; done: number; total: number }
+  | { state: "received"; file: number; name: string }
+  | { state: "sent" }
+  | { state: "ended"; reason: string };
+
 export interface UsbDrive {
   letter: string;
   label: string;

@@ -3206,69 +3206,340 @@ input[type="range"]::-webkit-slider-thumb {
 }
 
 /* ── Weekly recap ───────────────────────────────────────────────────────── */
-/* WeeklyRecapCardView: text from x = 116, indigo wash, chips of 17 px values. */
+/* Puhu on the left; then the week (its time, a bar a day, Share and OK) and,
+   past a hairline, its numbers and what stood out. */
 
 .recap-stack {
   padding: 4px 16px 4px 116px;
   gap: 4px;
 }
 
-.recap-head {
+.recap-stack .actions {
+  margin-top: 3px;
+}
+
+.recap-body {
+  flex-direction: row;
+  align-items: stretch;
+  gap: 18px;
+  padding: 12px 18px 12px 116px;
+}
+
+/* The numbers keep their width; the week gives way, its labels wrapping. */
+.recap-main {
+  flex: 0 1 auto;
   display: flex;
-  align-items: baseline;
+  flex-direction: column;
+  justify-content: space-between;
   gap: 6px;
 }
 
+.recap-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 7px;
+  white-space: nowrap;
+}
+
 .recap-title {
-  font: 600 11px var(--font);
+  font: 600 11px/14px var(--font);
   color: #818cf8;
 }
 
 .recap-range {
-  font: 400 10px var(--font);
+  font: 400 10.5px/14px var(--font);
   color: var(--dim-2);
-  white-space: nowrap;
 }
 
-.recap-chips {
+.recap-hero {
   display: flex;
-  gap: 14px;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 7px;
   white-space: nowrap;
 }
 
-.recap-chip .v {
-  font: 700 17px var(--font);
-  color: var(--ink-2);
+.recap-hero .v {
+  font: 700 26px/28px var(--font);
+  letter-spacing: -0.4px;
+  color: var(--ink);
 }
 
-.recap-chip .l {
-  font: 400 9px var(--font);
+.recap-hero .l {
+  font: 400 11px/14px var(--font);
   color: var(--dim-2);
 }
 
-.recap-meta {
+.recap-week {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+}
+
+.recap-bars {
   display: flex;
   gap: 5px;
-  font: 400 11px var(--font);
+}
+
+.recap-bar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.recap-bar .col {
+  display: flex;
+  align-items: flex-end;
+  width: 11px;
+  height: 30px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.recap-bar i {
+  width: 100%;
+  border-radius: 3px;
+  background: rgba(165, 180, 252, 0.3);
+  transform-origin: bottom;
+  animation: recap-rise 0.7s cubic-bezier(0.34, 1.3, 0.64, 1) both;
+  animation-delay: calc(0.3s + var(--i) * 55ms);
+}
+
+.recap-bar.top i {
+  background: linear-gradient(#a5b4fc, #6366f1);
+  box-shadow: 0 0 10px rgba(129, 140, 248, 0.45);
+}
+
+.recap-bar .d {
+  font: 500 9px/11px var(--font);
+  color: var(--dim-4);
+}
+
+.recap-bar.top .d {
+  color: #a5b4fc;
+}
+
+@keyframes recap-rise {
+  from {
+    transform: scaleY(0);
+  }
+}
+
+.recap-busiest {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  padding-bottom: 13px;
+}
+
+.recap-busiest .l {
+  font: 400 10px/12px var(--font);
   color: var(--dim-2);
+}
+
+.recap-busiest .n {
+  font: 600 12.5px/16px var(--font);
+  color: var(--ink-2);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.recap-meta .n {
+.recap-main .actions {
+  margin-top: 4px;
+  white-space: nowrap;
+}
+
+.recap-side {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+  padding-left: 18px;
+  border-left: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.recap-chips {
+  display: flex;
+  gap: 12px;
+  white-space: nowrap;
+}
+
+.recap-chip .v {
+  font: 700 16px/20px var(--font);
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* +added −removed reads left to right in Arabic too. */
+.recap-chip .v.lines {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+.recap-chip .v .add {
+  color: #4ade80;
+}
+
+.recap-chip .v .del {
+  color: #f87171;
+}
+
+.recap-chip .l {
+  font: 400 10px/12px var(--font);
+  color: var(--dim-2);
+}
+
+/* As wide as the numbers above leave it: a long value is cut, not the week. */
+.recap-facts {
+  display: flex;
+  flex-direction: column;
+  contain: inline-size;
+}
+
+.recap-fact {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 3px 0;
+  font: 400 11px/15px var(--font);
+  white-space: nowrap;
+}
+
+.recap-fact + .recap-fact {
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.recap-fact .l {
+  color: var(--dim-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.recap-fact .n {
+  flex: 0 1 auto;
+  min-width: 0;
   color: var(--ink-2);
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.recap-meta .sep {
-  color: var(--dim-4);
+/* The week's sky: its constellations on the left, the title and its words beside them. */
+.recap-skybody {
+  flex-direction: row;
+  align-items: center;
+  gap: 18px;
+  padding: 12px 20px 12px 104px;
 }
 
-.recap-stack .actions {
-  margin-top: 3px;
+.recap-sky {
+  flex: 0 0 auto;
+  width: 200px;
+  height: 150px;
+  border-radius: 14px;
+  background: radial-gradient(160px 120px at 50% 60%, rgba(99, 102, 241, 0.16), transparent 70%),
+    linear-gradient(#070a1e, #121433);
+}
+
+.recap-skytext {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.recap-kicker {
+  font: 600 10.5px/14px var(--font);
+  letter-spacing: 0.06em;
+  color: #a5b4fc;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.recap-name {
+  font: 700 21px/26px var(--font);
+  color: var(--ink);
+}
+
+.recap-line {
+  font: 400 12.5px/17px var(--font);
+  color: var(--ink-2);
+}
+
+.recap-day {
+  font: 400 11px/15px var(--font);
+  color: var(--dim-2);
+}
+
+.recap-numbers {
+  display: flex;
+  gap: 14px;
+  margin-top: 4px;
+  white-space: nowrap;
+}
+
+.recap-numbers span {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.recap-numbers b {
+  font: 700 14px/18px var(--font);
+  color: var(--ink);
+}
+
+.recap-numbers i {
+  font: 400 10.5px/14px var(--font);
+  font-style: normal;
+  color: var(--dim-2);
+}
+
+.recap-trend {
+  align-self: flex-start;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font: 600 10.5px/16px var(--font);
+  color: #8cf0c8;
+  background: rgba(140, 240, 200, 0.12);
+}
+
+.recap-ask {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 8px;
+  font: 400 11px/15px var(--font);
+  color: var(--dim);
+}
+
+.recap-ask .link-btn {
+  padding: 0;
+  font: 600 11px/15px var(--font);
+  color: #a5b4fc;
+}
+
+.recap-ask .link-btn.dim {
+  color: var(--dim-2);
+}
+
+.recap-skytext .actions {
+  margin-top: 6px;
+}
+
+.recap-note {
+  font: 400 11px/15px var(--font);
+  color: var(--dim-2);
 }
 
 .recap-share {
@@ -3309,6 +3580,171 @@ input[type="range"]::-webkit-slider-thumb {
 .recap-link {
   color: #818cf8;
   padding: 0;
+}
+
+/* ── Send to phone (views/phone.ts) ─────────────────────────────────────── */
+/* Puhu at the bottom left points at a sign on its post: the QR code on white. */
+
+.phone-stack {
+  flex-direction: row;
+  align-items: center;
+  gap: 20px;
+  padding: 10px 20px 10px 92px;
+}
+
+.phone-sign {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  opacity: 0;
+  transform: translateY(10px) scale(0.9) rotate(-3deg);
+  transition: opacity 0.15s ease-in, transform 0.2s ease-in;
+}
+
+.phone-sign.on {
+  opacity: 1;
+  transform: rotate(-2deg);
+  transition: opacity 0.3s ease-out, transform 0.6s cubic-bezier(0.34, 1.45, 0.64, 1);
+}
+
+.phone-card.asking .phone-sign {
+  display: none;
+}
+
+.phone-panel {
+  display: grid;
+  place-items: center;
+  width: 140px;
+  height: 140px;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
+}
+
+.phone-qr {
+  width: 128px;
+  height: 128px;
+  image-rendering: pixelated;
+  transition: opacity 0.4s ease-out, filter 0.4s ease-out;
+}
+
+/* Opened by a phone: the code has done its work. */
+.phone-sign.used .phone-qr {
+  opacity: 0.18;
+  filter: blur(1.5px);
+}
+
+.phone-post {
+  width: 7px;
+  height: 9px;
+  border-radius: 0 0 3px 3px;
+  background: linear-gradient(#a07a50, #7a5a38);
+}
+
+.phone-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.phone-text .title {
+  font: 600 15px/19px var(--font);
+  color: var(--ink);
+}
+
+.phone-text .sub {
+  font: 400 12.5px/17px var(--font);
+  color: var(--ink-2);
+}
+
+.phone-text .ok {
+  color: var(--green-2);
+}
+
+.phone-text .warn {
+  color: #f5b83d;
+}
+
+.phone-note {
+  font: 400 11px/15px var(--font);
+  color: var(--dim-2);
+}
+
+.phone-until {
+  font: 400 10.5px/14px var(--font);
+  color: var(--dim-4);
+}
+
+.phone-bar {
+  height: 4px;
+  margin-top: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.phone-bar i {
+  display: block;
+  height: 100%;
+  background: var(--green-2);
+  transform-origin: left;
+  transform: scaleX(0);
+  transition: transform 0.25s ease-out;
+}
+
+.phone-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.phone-got {
+  font: 500 12px/16px var(--font);
+  color: var(--ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.phone-got::before {
+  content: "✓  ";
+  color: var(--green-2);
+}
+
+.phone-text .actions {
+  margin-top: 6px;
+}
+
+.phone-plane {
+  position: absolute;
+  left: 176px;
+  top: 74px;
+  color: #ffffff;
+  pointer-events: none;
+}
+
+/* The drop scene's way to a phone, beside the choose card's ×; the + tab has Get from phone. */
+#upload-overlay .upload-phone {
+  position: absolute;
+  top: 50px;
+  right: 52px;
+  height: 24px;
+  gap: 6px;
+  pointer-events: auto;
+}
+
+.drop-more {
+  margin-top: 4px;
+}
+
+.drop-phone {
+  height: 26px;
+  padding: 0 12px;
+  gap: 6px;
+  font-size: 12px;
 }
 
 /* ── Wardrobe (right-click on Puhu) ──────────────────────────────────────── */

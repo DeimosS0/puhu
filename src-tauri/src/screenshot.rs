@@ -5,12 +5,19 @@
 // kept as a file it can open (`open_screenshot`), show larger (`screenshot_view`) or
 // save as a PNG (`save_screenshot`). Copied text goes on to copied.rs. Linux has no
 // preview yet.
+//
+// A copied picture can be anything (a bank statement, a private photo), so the kept
+// files live only as long as the island can use them: the newest two, each for a
+// quarter of an hour, none from an earlier run, none after Puhu closes.
 
 use std::path::PathBuf;
 use std::sync::Mutex;
 
-/// The newest images, kept in the temp folder for the island to open.
-const KEEP: usize = 5;
+/// The newest images, kept in the temp folder for the island to open: the one in the
+/// peek, and the one the viewer may still be showing when another comes.
+const KEEP: usize = 2;
+/// How long one is kept: its peek and its viewer are long closed by then.
+const EXPIRE: std::time::Duration = std::time::Duration::from_secs(15 * 60);
 /// The viewer's copy at most: its largest picture at 2x.
 const VIEW_W: usize = 980;
 const VIEW_H: usize = 552;
@@ -28,9 +35,22 @@ fn folder() -> std::path::PathBuf {
     std::env::temp_dir().join("puhu-screenshots")
 }
 
-/// Only a plain file name, of a file in that folder.
+/// Deletes every kept image: at launch (what a crash left), when Puhu closes, and from
+/// Settings → What Puhu keeps.
+pub fn clear() {
+    let _ = std::fs::remove_dir_all(folder());
+}
+
+#[tauri::command]
+pub fn clear_screenshots() {
+    clear();
+}
+
+/// Only a plain file name, of a file in that folder: one name and nothing else, so no
+/// folder, no `..` and no drive (`C:x` would be relative to a drive, not to the folder).
 fn kept(name: &str) -> Option<PathBuf> {
-    if name.is_empty() || name.contains(['/', '\\']) || name.contains("..") {
+    let mut parts = std::path::Path::new(name).components();
+    if !matches!((parts.next(), parts.next()), (Some(std::path::Component::Normal(_)), None)) || name.contains("..") {
         return None;
     }
     Some(folder().join(name)).filter(|path| path.is_file())
@@ -328,9 +348,15 @@ mod imp {
         let dir = super::folder();
         let _ = std::fs::create_dir_all(&dir);
         let name = format!("image-{sequence}.bmp");
-        if std::fs::write(dir.join(&name), super::bmp(&rgb, w, h)).is_err() {
+        let path = dir.join(&name);
+        if std::fs::write(&path, super::bmp(&rgb, w, h)).is_err() {
             return;
         }
+        // Gone after a while even if no other picture comes to push it out.
+        let _ = std::thread::Builder::new().name("puhu-shot-expiry".into()).stack_size(64 * 1024).spawn(move || {
+            std::thread::sleep(super::EXPIRE);
+            let _ = std::fs::remove_file(path);
+        });
         if let Ok(entries) = std::fs::read_dir(&dir) {
             let mut files: Vec<_> = entries.flatten().filter_map(|e| Some((e.metadata().ok()?.modified().ok()?, e.path()))).collect();
             files.sort_by(|a, b| b.0.cmp(&a.0));
@@ -358,6 +384,7 @@ mod imp {
         if APP.set(app.clone()).is_err() {
             return;
         }
+        super::clear();
         // A thread that only waits: for the clipboard to change.
         let _ = std::thread::Builder::new().name("puhu-clipboard".into()).spawn(|| unsafe {
             let class = w!("PuhuClipboardWatch");
@@ -381,6 +408,13 @@ mod imp {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn only_a_plain_name_is_a_kept_image() {
+        for name in ["", "..", "a/b.bmp", r"a\b.bmp", "C:notepad.exe", r"C:\Windows\notepad.exe", r"\\host\share\x.bmp", "../x.bmp"] {
+            assert_eq!(kept(name), None, "{name}");
+        }
+    }
 
     #[test]
     fn base64_matches_the_standard() {

@@ -31,6 +31,7 @@ cargo test -p puhu --lib                # Rust tests
 
 ## Rules
 - Secrets live in Windows Credential Manager, never on disk or in git.
+- Keep the least data for the shortest time: anything new that stores something or listens on the network gets its row in PRIVACY.md and in Settings → What Puhu keeps, and a threat model in `docs/`, before its code.
 - No telemetry. Network calls only to services the user configured.
 - Never block Claude Code: if the app doesn't answer, the hook exits immediately.
 - Never overwrite `~/.claude/settings.json`: dated backup, merge, show the diff, write only after the user confirms.

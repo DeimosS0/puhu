@@ -175,6 +175,16 @@ pub fn progress_add(event: Value) -> Result<(), String> {
     append(&path(), &event)
 }
 
+/// Settings → What Puhu keeps → Clear: the whole log goes, and focus play starts over.
+#[tauri::command]
+pub fn progress_clear() -> Result<(), String> {
+    let _turn = APPEND.lock().unwrap_or_else(PoisonError::into_inner);
+    match std::fs::remove_file(path()) {
+        Err(err) if err.kind() != ErrorKind::NotFound => Err(err.to_string()),
+        _ => Ok(()),
+    }
+}
+
 /// The whole log, for the island to replay at launch (ten years of ten rounds a day:
 /// 73,000 lines, read and checked in about 0.2 s).
 #[tauri::command(async)]

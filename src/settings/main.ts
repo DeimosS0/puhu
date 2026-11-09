@@ -3,6 +3,7 @@
 // disk is confirmed. The window's frame and the Flow pages live in ../hub; the
 // island's settings are drawn here, one Island page at a time.
 
+import { SKIES_KEY } from "../recap/sky";
 import "./settings.css";
 import { Bridge, onEvent, type HookPreview, type HookStatus, type ShortcutsReport, type SubscriptionStatus } from "../core/bridge";
 import { CUSTOM_SERVER_KEY, providerDef, urlExposure } from "../core/providers";
@@ -932,6 +933,8 @@ function integrationsSection(present: Record<string, boolean>): HTMLElement {
 
     const rows = h("div", { class: "svc-fields" });
     const state = h("span", { class: "svc-state" });
+    // Why a value was refused (an instance address over http across a network).
+    const refused = h("div", { class: "hint" });
     const showState = () => {
       const keyed = def.fields.length > 0;
       const ready = keyed && def.fields.every((f) => present[f.key]);
@@ -957,8 +960,10 @@ function integrationsSection(present: Record<string, boolean>): HTMLElement {
           input.value = "";
           input.placeholder = value ? CHAT_STRINGS.stored : field.placeholder;
           dotEl.style.background = value ? "#22c55e" : "#f4505e";
-        } catch {
+          refused.textContent = "";
+        } catch (err) {
           dotEl.style.background = "#f5a524";
+          refused.textContent = String(err).replace(/^Error:\s*/, "");
         }
       });
       rows.append(
@@ -969,6 +974,7 @@ function integrationsSection(present: Record<string, boolean>): HTMLElement {
       );
     }
 
+    rows.append(refused);
     if (def.hint) rows.append(h("div", { class: "hint", text: t(def.hint) }));
     if (def.id === "integration_spotify") {
       // Said only when there is no Spotify to launch.
@@ -1202,6 +1208,7 @@ function generalSections(): HTMLElement[] {
         toggle(settings.hideFromCapture, (v) => { settings.hideFromCapture = v; void save(); })),
       h("div", { class: "setting-note", text: t("No telemetry. Network requests only go to the services you configure yourself.") }),
     ),
+    group(t("What Puhu keeps"), ...keptRows()),
     group(t("Weekly recap"), ...recapRows()),
     group(t("Updates"), ...updateRows(toggle, version)),
   ];
@@ -1525,48 +1532,96 @@ function shortcutsSection(initial: ShortcutsReport | null): HTMLElement {
   );
 }
 
-/** Settings → General → Weekly recap. The prefs live with the history in Rust. */
+/** Settings → General → Weekly recap. The prefs live with the history in Rust; what it
+ *  keeps is cleared under What Puhu keeps. */
 function recapRows(): HTMLElement[] {
-  const T = {
-    label: t("Weekly recap"),
-    keep: t("Keep a history of my coding sessions"),
-    clear: t("Clear history"),
-    cleared: t("History cleared."),
-    about: t("Counts and project names only — never commands, files or prompts. Kept on this computer for 12 weeks."),
-  };
-  const feedback = h("span", { class: "hint" });
   const sw = toggle(true, (v) => { void Bridge.recapSetEnabled(v); });
   void Bridge.recapPrefs().then((prefs) => {
     if (prefs) sw.classList.toggle("on", prefs.enabled);
   });
-  const clearBtn = h("button", {
-    class: "danger",
-    text: T.clear,
-    onclick: async () => {
-      clearBtn.disabled = true;
-      await Bridge.recapClear();
-      feedback.textContent = T.cleared;
-      window.setTimeout(() => {
-        clearBtn.disabled = false;
-        feedback.textContent = "";
-      }, 2400);
-    },
-  }) as HTMLButtonElement;
   return [
     h("div", { class: "row" },
-      h("label", { text: T.label }),
+      h("label", { text: t("Weekly recap") }),
       sw,
-      h("span", { class: "hint", text: T.keep }),
+      h("span", { class: "hint", text: t("Keep a history of my coding sessions") }),
     ),
-    h("div", { class: "row" },
-      h("label", {}),
-      clearBtn,
-      feedback,
-    ),
-    h("div", { class: "row" },
-      h("label", {}),
-      h("span", { class: "hint", style: "flex:1 1 0;min-width:0", text: T.about }),
-    ),
+    setting(t("Count my working time"), t("For the weekly sky: minutes in coding, design and writing programs while you are at the keyboard, kept 14 days. Never a program's name, a title or what you type."),
+      toggle(settings.countWork === true, (v) => { settings.countWork = v; void save(); })),
+  ];
+}
+
+/**
+ * A Clear that asks once more: the first click arms it for a few seconds, the second
+ * clears. Nothing here can be brought back.
+ */
+function clearButton(run: () => Promise<unknown>): HTMLElement {
+  const button = h("button", { class: "danger", text: t("Clear") }) as HTMLButtonElement;
+  let armed = 0;
+  button.addEventListener("click", async () => {
+    if (!armed) {
+      button.textContent = t("Click again to clear");
+      armed = window.setTimeout(() => {
+        armed = 0;
+        button.textContent = t("Clear");
+      }, 4000);
+      return;
+    }
+    window.clearTimeout(armed);
+    armed = 0;
+    button.disabled = true;
+    try {
+      await run();
+      button.textContent = t("Cleared.");
+    } catch {
+      button.textContent = t("Clear");
+    }
+    window.setTimeout(() => {
+      button.disabled = false;
+      button.textContent = t("Clear");
+    }, 2400);
+  });
+  return button;
+}
+
+/**
+ * Settings → General → What Puhu keeps: everything he remembers, where and for how long,
+ * each with its Clear, or where it is managed. Nothing of it leaves this computer.
+ */
+function keptRows(): HTMLElement[] {
+  return [
+    h("div", { class: "setting-note", text: t("Everything Puhu remembers, and for how long. None of it leaves this computer.") }),
+    setting(t("Focus rounds"), t("When each Pomodoro round started and how long it ran, for your level, streak and badges. Kept until you clear them; focus play then starts over."),
+      clearButton(async () => {
+        await Bridge.progressClear();
+        await Bridge.progressChanged();
+      })),
+    setting(t("Agent sessions"), t("Counts and project names only — never commands, files or prompts. Kept for 4 weeks; older weeks only add to your totals."),
+      clearButton(() => Bridge.recapClear())),
+    setting(t("Today's list"), t("Your things to do, until you tick or delete them; done ones stay 14 days for the week's view.")),
+    setting(t("Copied pictures"), t("The last ones you copied, for the island's peek and viewer. Deleted after 15 minutes and when Puhu closes."),
+      clearButton(() => Bridge.clearScreenshots())),
+    setting(t("Dropped files"), t("Copies of the files you drop for the chat, so the originals stay untouched. Deleted after a day."),
+      clearButton(() => Bridge.clearInbox())),
+    setting(t("Files from your phone"), t("Saved in Downloads with Windows' internet mark, never opened by Puhu; a transfer that breaks leaves nothing.")),
+    setting(t("Your networks"), t("Windows' id of each Public network you said is yours, for Send to phone; never its name."),
+      clearButton(() => Bridge.phoneForgetNetworks())),
+    setting(t("Working time"), t("Minutes per half hour in coding, design and writing programs, for the weekly sky; only if you turned it on. Kept 14 days."),
+      clearButton(() => Bridge.workClear())),
+    setting(t("Weekly skies"), t("Each week's title and its numbers, no hours in them, for a year: for your fullest sky and the year's card."),
+      clearButton(async () => {
+        try {
+          localStorage.removeItem(SKIES_KEY);
+        } catch {
+          // Nothing kept to clear.
+        }
+      })),
+    setting(t("Copied text"), t("Shown in the island for a moment, never kept.")),
+    setting(t("The program in front"), t("Only its name, for what Puhu holds (a mug, a beret, a pencil); never kept.")),
+    setting(t("Your town"), t("Its name and place, for the weather. Remove it under Weather.")),
+    setting(t("Full-screen apps"), t("The names of the apps that filled the screen, for game mode. Remove them under Game mode.")),
+    setting(t("Puhu's log"), t("What happened and when, never what was in it, to find a fault. Up to 1 MB."),
+      clearButton(() => Bridge.logClear())),
+    setting(t("Keys and tokens"), t("In Windows Credential Manager, never in a file.")),
   ];
 }
 

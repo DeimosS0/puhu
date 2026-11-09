@@ -107,6 +107,9 @@ pub struct Settings {
     pub game_apps: BTreeMap<String, crate::game::GameApp>,
     /// The town Puhu dresses for the weather of (weather.rs); none, nothing is asked.
     pub weather_place: Option<crate::weather::Place>,
+    /// Count working time for the weekly sky (activity.rs, docs/weekly-card.md): None
+    /// until asked on the first weekly card, then the answer. Off, nothing is counted.
+    pub count_work: Option<bool>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -180,6 +183,7 @@ impl Default for Settings {
             game_mode: true,
             game_apps: BTreeMap::new(),
             weather_place: None,
+            count_work: None,
         }
     }
 }
@@ -479,7 +483,8 @@ mod tests {
   "focusReminder": "21:30",
   "gameMode": false,
   "gameApps": { "cs2": { "name": "Counter-Strike 2", "on": true }, "chrome": { "name": "YouTube", "on": false } },
-  "weatherPlace": { "name": "İzmir, Türkiye", "lat": 38.42, "lon": 27.14 }
+  "weatherPlace": { "name": "İzmir, Türkiye", "lat": 38.42, "lon": 27.14 },
+  "countWork": true
 }"##;
 
     fn custom() -> Value {
@@ -885,6 +890,7 @@ mod tests {
                 "gameMode",
                 "gameApps",
                 "weatherPlace",
+                "countWork",
             ]
         );
         let _ = std::fs::remove_dir_all(&dir);

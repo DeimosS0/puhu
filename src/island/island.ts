@@ -56,7 +56,8 @@ import { Today } from "../views/today";
 import { Timers, formatLeft, progressOf, type Timer, type TimerKind, type TimerSpec } from "../core/timer";
 import { TimerClock } from "./timers";
 import { USB_ICON, bytes, driveName } from "../views/usb";
-import type { UsbNews } from "../core/bridge";
+import type { PhoneNews, UsbNews } from "../core/bridge";
+import { closePhone, phoneLive, phoneNews, startPhone, trustAndStart, type PhoneHost } from "./phone";
 import { dayKey } from "../core/today";
 import { Updates } from "./update";
 import { UPDATE_BLUE, showsUpdateHint } from "../whats-new/whats-new";
@@ -87,11 +88,13 @@ const SHOT_W = 260;
 const SHOT_H = 146;
 const SHOT_PAD = 10;
 const SHOT_SECONDS = 4.5;
-/** The viewer a click on the peek opens: the picture's largest size, the column beside it. */
-const VIEW_IMG_W = 476;
+/** The viewer a click on the peek opens: the picture's largest size, the column beside it
+ *  and the room between them (the widest picture still leaves it: 640 in all). */
+const VIEW_IMG_W = 462;
 const VIEW_IMG_H = 268;
 const VIEW_SIDE = 140;
 const VIEW_PAD = 12;
+const VIEW_GAP = 14;
 const VIEW_MIN_W = 400;
 const VIEW_MIN_H = 176;
 const SAVE_ICON = "M12 3a1 1 0 0 1 1 1v8.6l2.8-2.8a1 1 0 1 1 1.4 1.4l-4.5 4.5a1 1 0 0 1-1.4 0l-4.5-4.5a1 1 0 1 1 1.4-1.4L11 12.6V4a1 1 0 0 1 1-1zM5 15a1 1 0 0 1 1 1v2.5c0 .3.2.5.5.5h11c.3 0 .5-.2.5-.5V16a1 1 0 1 1 2 0v2.5a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 18.5V16a1 1 0 0 1 1-1z";
@@ -318,6 +321,13 @@ const CHOOSE_WAIT_S = 8;
 const DRAG_GONE_MS = 1200;
 
 const modeOrder = (m: IslandMode) => (m === "hidden" ? 0 : m === "compact" ? 1 : 2);
+
+/** A copied colour's swatch, its colour set as one property (never as style text). */
+function swatch(color: string): HTMLElement {
+  const el = h("span", { class: "swatch" });
+  el.style.background = color;
+  return el;
+}
 
 export class Island {
   readonly fsm = new IslandStateMachine();
@@ -756,17 +766,11 @@ export class Island {
         if (on) void Bridge.focusWindow(true);
         else if (State.view !== "prompt" && State.mode === "expanded") void Bridge.focusWindow(false);
       },
-      holdOpen: (on) => {
-        if (this.holdingOpen === on) return;
-        this.holdingOpen = on;
-        if (on) {
-          this.fsm.pinned = true;
-          this.fsm.cancelTimers();
-        } else {
-          this.fsm.pinned = State.isPinned || State.pendingApproval != null;
-          if (!this.fsm.pinned && !this.wasInIsland && this.fsm.state === "home") this.fsm.mouseLeft();
-        }
-      },
+      holdOpen: (on) => this.setHoldOpen(on),
+      phoneClose: () => this.phoneClose(),
+      phoneTrust: () => void trustAndStart(this.phoneHost),
+      phoneDownloads: () => void Bridge.phoneRevealDownloads(),
+      phoneReceive: () => void startPhone("receive", this.phoneHost),
       puhuAt: () => {
         const r = this.botCanvas.getBoundingClientRect();
         return r.width > 0 ? { x: r.left + r.width / 2, y: r.top + BOT_OVERHANG / 2 + (r.height - BOT_OVERHANG) / 2 } : null;
@@ -832,6 +836,7 @@ export class Island {
       },
       cancel: () => this.discardDrop(),
       convert: (kind) => this.convertDrop(kind),
+      phoneSend: () => void startPhone("send", this.phoneHost),
       dress: (ctx, R, turn, layer, pitch) => this.engine.drawWorn(ctx, R, turn, layer, pitch),
     });
 
@@ -896,6 +901,8 @@ export class Island {
           break;
         case "home":
           this.expand(this.openingView());
+          // A phone session's card comes back held open, as it was.
+          if (State.view === "phone") this.setHoldOpen(true);
           if (!this.wasInIsland) this.fsm.mouseLeft();
           // Hooks may have been installed in a terminal since: the idle cards
           // say so on the next open, without polling while the island is shut.
@@ -1031,6 +1038,8 @@ export class Island {
     }
     State.isPinned = false;
     this.fsm.pinned = false;
+    // Whatever held it open is let go with it, so it can hold it again on the next open.
+    this.holdingOpen = false;
     // Drive the state machine rather than the mode: setting the mode behind its
     // back left it thinking the island was still open, and a click on the compact
     // island then did nothing — the island could never be reopened.
@@ -1056,9 +1065,10 @@ export class Island {
   /**
    * What a click or a hover opens on: while Puhu is blue, the new version
    * ("Puhu X is out", Update now); otherwise the usual view. A waiting
-   * permission or question always comes first.
+   * permission or question always comes first, then a phone session's card.
    */
   private openingView(): IslandViewName {
+    if (State.phone && !State.pendingApproval) return "phone";
     return this.updateHintOn() ? "update" : State.defaultView();
   }
 
@@ -1351,6 +1361,62 @@ export class Island {
     });
   }
 
+  /** The island stays open while something in it waits on the user (a field, a phone). */
+  private setHoldOpen(on: boolean) {
+    if (this.holdingOpen === on) return;
+    this.holdingOpen = on;
+    if (on) {
+      this.fsm.pinned = true;
+      this.fsm.cancelTimers();
+    } else {
+      this.fsm.pinned = State.isPinned || State.pendingApproval != null;
+      if (!this.fsm.pinned && !this.wasInIsland && this.fsm.state === "home") this.fsm.mouseLeft();
+    }
+  }
+
+  /**
+   * Send to phone, and from it (island/phone.ts): the card stays up for as long as the
+   * session lives, Puhu points at the sign, is glad when a phone opens it and when a file
+   * gets across.
+   */
+  private readonly phoneHost: PhoneHost = {
+    show: () => {
+      if (!State.phone) return;
+      this.setHoldOpen(true);
+      if (State.view !== "phone" || State.mode !== "expanded") {
+        this.fsm.forceHome();
+        this.expand("phone");
+        this.engine.raiseWing();
+      }
+      this.views.get("phone")?.sync();
+      this.ensureRunning();
+    },
+    connected: () => {
+      this.engine.triggerEmote("happy");
+      Sound.play("pop");
+      this.ensureRunning();
+    },
+    delivered: () => {
+      this.engine.squash();
+      this.engine.triggerEmote("happy");
+      Sound.play("approve");
+      this.ensureRunning();
+      // Everything reached the phone: a moment for the plane, then the card goes.
+      if (State.phone?.stage === "done") window.setTimeout(() => {
+        if (State.phone?.stage === "done") this.phoneClose();
+      }, 2600);
+    },
+    ended: () => {
+      if (!State.phone) this.phoneClose();
+    },
+  };
+
+  private phoneClose() {
+    closePhone();
+    this.setHoldOpen(false);
+    if (State.view === "phone") this.setView(State.defaultView());
+  }
+
   /** "Cancel" on the dropped file: forget it, so the chat does not pick it up, and its copy goes. */
   private discardDrop() {
     if (State.droppedFile) void Bridge.forgetDropped(State.droppedFile.path);
@@ -1521,7 +1587,7 @@ export class Island {
       this.shotImg.style.width = `${at(f.w, t.w)}px`;
       this.shotImg.style.height = `${at(f.h, t.h)}px`;
       // Its column rides beside it, ending at the island's right edge.
-      this.viewSide.style.left = `${at(f.left + f.w + VIEW_PAD, this.viewSize.w - VIEW_PAD - VIEW_SIDE)}px`;
+      this.viewSide.style.left = `${at(f.left + f.w + VIEW_GAP, this.viewSize.w - VIEW_PAD - VIEW_SIDE)}px`;
     } else if (this.hudKind === "shot") {
       this.shotEl.style.left = `${snapPx((islandW - this.shotSize.w) / 2)}px`;
       this.shotEl.style.top = `${snapPx(SHOT_PAD)}px`;
@@ -1767,9 +1833,16 @@ export class Island {
     }, 7000 + Math.random() * 9000);
   }
 
-  /** A click outside the open island (Rust's `outside-click`): it closes. */
+  /**
+   * A click outside the open island (Rust's `outside-click`): it closes. Not over a phone
+   * session's card while it is on: a click elsewhere hid the code being scanned; its ×
+   * ends it. A finished one goes with the island.
+   */
   clickedOutside() {
-    if (State.mode === "expanded") this.collapse();
+    if (State.mode !== "expanded") return;
+    if (State.view === "phone" && phoneLive()) return;
+    if (State.phone && !phoneLive()) this.phoneClose();
+    this.collapse();
   }
 
   /** The pointer is on the folded window (Rust's `closed-hover`): the island wakes. */
@@ -1968,6 +2041,7 @@ export class Island {
     });
     void onEvent<Weather | null>("weather", (w) => this.onWeather(w));
     void onEvent<UsbNews>("usb", (news) => this.onUsb(news));
+    void onEvent<PhoneNews>("phone", (news) => phoneNews(news, this.phoneHost));
     void Bridge.usbDrives().then((drives) => {
       State.usbDrives = drives ?? [];
       State.notify();
@@ -3236,7 +3310,7 @@ export class Island {
       if (peek.kind === "text") peek.label = t("{count} characters", { count: String(peek.count) });
     }
     const icon = peek.kind === "color"
-      ? h("span", { class: "swatch", style: `background:${peek.color}` })
+      ? swatch(peek.color ?? "")
       : svg(COPIED_ICONS[peek.kind], 16, { stroke: 2 });
     this.showInfo(icon, peek.label, peek.kind === "secret" ? "#ffb340" : "#c7cbd3", 1.8);
     replay(this.infoHud, "pop");
@@ -3316,9 +3390,9 @@ export class Island {
     const fit = Math.min(VIEW_IMG_W / s.width, VIEW_IMG_H / s.height, 1);
     const iw = Math.max(40, Math.round(s.width * fit));
     const ih = Math.max(24, Math.round(s.height * fit));
-    const vw = Math.max(VIEW_MIN_W, iw + 2 * VIEW_PAD + VIEW_SIDE);
+    const vw = Math.max(VIEW_MIN_W, iw + 2 * VIEW_PAD + VIEW_GAP + VIEW_SIDE);
     const vh = Math.max(VIEW_MIN_H, ih + 2 * VIEW_PAD);
-    this.viewSize = { w: vw, h: vh, img: { left: VIEW_PAD + (vw - 2 * VIEW_PAD - VIEW_SIDE - iw) / 2, top: (vh - ih) / 2, w: iw, h: ih } };
+    this.viewSize = { w: vw, h: vh, img: { left: VIEW_PAD + (vw - 2 * VIEW_PAD - VIEW_GAP - VIEW_SIDE - iw) / 2, top: (vh - ih) / 2, w: iw, h: ih } };
     Sound.play("pop");
     this.showHud("shot", SHOT_SECONDS);
   }

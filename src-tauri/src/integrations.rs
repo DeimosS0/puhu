@@ -126,13 +126,17 @@ pub async fn poll_once(app: AppHandle, id: &str) {
     }
 }
 
+/// A self-hosted instance's address a token may go to: https, or plain http only to this
+/// computer. Over http on a network the token would travel in clear on every poll.
+pub fn instance_url(raw: &str) -> Option<reqwest::Url> {
+    let url = reqwest::Url::parse(raw.trim()).ok()?;
+    let host = url.host_str().is_some();
+    (host && (url.scheme() == "https" || (url.scheme() == "http" && crate::net::is_loopback_url(&url)))).then_some(url)
+}
+
 // ── GitLab ───────────────────────────────────────────────────────────────────
 fn gitea_api_base() -> Option<String> {
-    let url = secrets::get("gitea-url")?;
-    let parsed = reqwest::Url::parse(url.trim()).ok()?;
-    if !matches!(parsed.scheme(), "http" | "https") || parsed.host_str().is_none() {
-        return None;
-    }
+    let parsed = instance_url(&secrets::get("gitea-url")?)?;
     Some(format!("{}/api/v1", parsed.as_str().trim_end_matches('/')))
 }
 
@@ -390,8 +394,7 @@ async fn poll_gitlab(app: AppHandle) {
     if PAUSED.load(Ordering::Relaxed) || !enabled(&app, "integration_gitlab") { return; }
     let Some(token) = secrets::get("gitlab-token") else { return };
     let instance = secrets::get("gitlab-url").unwrap_or_else(|| "https://gitlab.com".into());
-    let Ok(instance) = reqwest::Url::parse(instance.trim()) else { return };
-    if !matches!(instance.scheme(), "http" | "https") || instance.host_str().is_none() { return; }
+    let Some(instance) = instance_url(&instance) else { return };
     let base = instance.as_str().trim_end_matches('/').to_string();
     // PRIVATE-TOKEN must never follow an instance redirect to another server.
     let Ok(http) = reqwest::Client::builder().timeout(TIMEOUT)
@@ -1209,8 +1212,11 @@ async fn poll_n8n(app: AppHandle) {
     let (Some(key), Some(raw_base)) = (secrets::get("n8n-api-key"), secrets::get("n8n-url")) else {
         return;
     };
-    let base = raw_base.trim_end_matches('/').to_string();
-    let http = client();
+    let Some(base) = instance_url(&raw_base) else { return };
+    let base = base.as_str().trim_end_matches('/').to_string();
+    // X-N8N-API-KEY is not one of the headers a redirect to another host drops: no redirects.
+    let Ok(http) = reqwest::Client::builder().timeout(TIMEOUT)
+        .redirect(reqwest::redirect::Policy::none()).build() else { return };
 
     // Two shapes: the public API first, then /rest.
     let list_urls = [
@@ -1426,6 +1432,18 @@ mod tests {
         assert_eq!(gitea_workflow_ci(Some("waiting"), None), CiState::Pending);
         assert_eq!(gitea_workflow_ci(None, Some("success")), CiState::Success);
         assert_eq!(gitea_workflow_ci(None, None), CiState::Unknown);
+    }
+
+    #[test]
+    fn instance_tokens_go_over_https_or_stay_on_this_computer() {
+        assert!(instance_url("https://gitea.example.com").is_some());
+        assert!(instance_url(" https://gitlab.example.com/ ").is_some());
+        assert!(instance_url("http://127.0.0.1:3000").is_some());
+        assert!(instance_url("http://localhost:5678").is_some());
+        assert!(instance_url("http://192.168.1.10:3000").is_none());
+        assert!(instance_url("http://n8n.example.com").is_none());
+        assert!(instance_url("ftp://example.com").is_none());
+        assert!(instance_url("not an address").is_none());
     }
 
     #[test]

@@ -17,6 +17,29 @@ import type { Converted, UsbDrive } from "./bridge";
 import type { Timer } from "./timer";
 
 /** A PDF or a smaller picture being made from a drop (island/convert.ts, views/convert.ts). */
+/** A Send to phone session as its card shows it (island/phone.ts, views/phone.ts). */
+export interface PhoneSession {
+  mode: "send" | "receive";
+  /** ask: is this Public network the user's? then the QR code until a phone opens it. */
+  stage: "ask" | "starting" | "waiting" | "connected" | "done" | "ended" | "error";
+  /** The link the QR code carries, its key after the #. */
+  url: string;
+  qrSize: number;
+  qrBits: string;
+  /** "iPhone · Safari", once a phone opened the link. */
+  device: string;
+  /** Sending: each file's name, size and how much of it went. */
+  files: { name: string; size: number; done: number }[];
+  /** Received so far, by name. */
+  received: string[];
+  /** The bytes of the file coming in now, and its size. */
+  incoming: { done: number; total: number } | null;
+  /** Why it stopped, said plainly. */
+  note: string;
+  /** When the session runs out (ms). */
+  until: number;
+}
+
 export interface Converting {
   kind: "pdf" | "small" | "jpg";
   /** The pages that fly in while it works: one a picture, none known yet for a document. */
@@ -132,6 +155,8 @@ export interface Settings {
   hideFromCapture: boolean;
   /** Focus play (streaks, levels, badges): null until asked at first launch. */
   focusGame: boolean | null;
+  /** Count working time for the weekly sky (activity.rs): null until asked on the card. */
+  countWork: boolean | null;
   /** From this time ("HH:MM", empty: never), the evening ember while a streak waits. */
   focusReminder: string;
   /** Game mode (game.rs): Puhu steps aside while a game fills the screen. */
@@ -202,6 +227,7 @@ export const DEFAULT_SETTINGS: Settings = {
   copiedText: false,
   hideFromCapture: false,
   focusGame: null,
+  countWork: null,
   focusReminder: "20:00",
   gameMode: true,
   absenceInterval: 180,
@@ -276,6 +302,8 @@ class AppState {
   /** Every file of the last drop, where it was dropped from (what a PDF is made of). */
   droppedPaths: string[] = [];
   converting: Converting | null = null;
+  /** Send to phone, or from it, while its card is up (island/phone.ts). */
+  phone: PhoneSession | null = null;
   /** The USB drives plugged in (usb.rs), for views/usb.ts and the header's tab. */
   usbDrives: UsbDrive[] = [];
   /** The timer whose card is ringing (island/timers.ts). */

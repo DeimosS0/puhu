@@ -2,6 +2,116 @@
   "about": "What's new, shown once in the island after Puhu updates (src/whats-new/). Every release adds its entry here, in the 14 languages: 1 to 4 items, a short title and one line each, an icon from ICON_NAMES in src/whats-new/whats-new.ts.",
   "releases": [
     {
+      "version": "0.6.3",
+      "items": [
+        {
+          "icon": "sparkles",
+          "title": {
+            "en": "Your week in stars",
+            "zh-Hans": "你的一周，化作星空",
+            "hi": "सितारों में आपका हफ़्ता",
+            "es": "Tu semana en estrellas",
+            "ar": "أسبوعك في النجوم",
+            "fr": "Votre semaine en étoiles",
+            "bn": "তারায় তোমার সপ্তাহ",
+            "pt-BR": "Sua semana em estrelas",
+            "ru": "Ваша неделя в звёздах",
+            "id": "Minggumu dalam bintang",
+            "de": "Deine Woche in Sternen",
+            "tr": "Haftan yıldızlarda",
+            "ko": "별이 된 한 주",
+            "ja": "一週間を星空に"
+          },
+          "detail": {
+            "en": "Monday's card draws your week in stars, with a title and a picture to share.",
+            "zh-Hans": "周一的卡片把你的一周画成星空，还有称号和一张可分享的图。",
+            "hi": "सोमवार का कार्ड आपका हफ़्ता सितारों में बनाता है, ख़िताब और शेयर करने लायक़ तस्वीर के साथ।",
+            "es": "Cada lunes, tu semana en estrellas, con título e imagen para compartir.",
+            "ar": "بطاقة الاثنين ترسم أسبوعك نجومًا، مع لقب وصورة للمشاركة.",
+            "fr": "Le lundi, votre semaine en étoiles, avec titre et image à partager.",
+            "bn": "সোমবারের কার্ডে তোমার সপ্তাহ তারায় আঁকা, সঙ্গে খেতাব আর শেয়ারের ছবি।",
+            "pt-BR": "Toda segunda, sua semana em estrelas, com título e imagem para compartilhar.",
+            "ru": "Каждый понедельник — ваша неделя в звёздах, с титулом и картинкой.",
+            "id": "Tiap Senin, minggumu jadi bintang, dengan julukan dan gambar untuk dibagi.",
+            "de": "Die Montagskarte zeichnet deine Woche in Sternen, mit Titel und einem Bild zum Teilen.",
+            "tr": "Pazartesi kartı haftanı yıldızlarla çizer; bir unvan ve paylaşılacak bir görselle.",
+            "ko": "월요일 카드가 한 주를 별로 그려요. 칭호와 공유할 그림도 함께요.",
+            "ja": "月曜のカードが一週間を星で描きます。称号とシェア用の画像つき。"
+          }
+        },
+        {
+          "icon": "phone",
+          "title": {
+            "en": "To your phone and back",
+            "zh-Hans": "与手机互传文件",
+            "hi": "फ़ोन पर भेजें, फ़ोन से लें",
+            "es": "Al teléfono y de vuelta",
+            "ar": "إلى هاتفك ومنه",
+            "fr": "Vers le téléphone, et retour",
+            "bn": "ফোনে পাঠাও, ফোন থেকে নাও",
+            "pt-BR": "Para o celular e de volta",
+            "ru": "На телефон и обратно",
+            "id": "Ke ponsel dan sebaliknya",
+            "de": "Aufs Handy und zurück",
+            "tr": "Telefona at, telefondan al",
+            "ko": "휴대폰과 주고받기",
+            "ja": "スマホと送り合う"
+          },
+          "detail": {
+            "en": "Drop files and scan the code: they go over your own Wi-Fi, sealed end to end.",
+            "zh-Hans": "拖入文件、扫一下码：经你自己的 Wi-Fi 传输，端到端加密。",
+            "hi": "फ़ाइलें छोड़ें, कोड स्कैन करें: आपके अपने Wi-Fi से, शुरू से अंत तक एन्क्रिप्टेड।",
+            "es": "Suelta archivos y escanea el código: van por tu Wi-Fi, cifrados de extremo a extremo.",
+            "ar": "أفلِت الملفات وامسح الرمز: تنتقل عبر شبكة Wi-Fi الخاصة بك، مشفّرة من طرف إلى طرف.",
+            "fr": "Déposez des fichiers et scannez : via votre Wi-Fi, chiffrés de bout en bout.",
+            "bn": "ফাইল ছেড়ে কোড স্ক্যান করো: নিজের Wi-Fi দিয়ে, এন্ড-টু-এন্ড এনক্রিপ্টেড।",
+            "pt-BR": "Solte arquivos e escaneie o código: vão pela sua Wi-Fi, criptografados de ponta a ponta.",
+            "ru": "Бросьте файлы и сканируйте код: по вашему Wi-Fi, в зашифрованном виде.",
+            "id": "Lepas file dan pindai kodenya: lewat Wi-Fi-mu sendiri, terenkripsi ujung ke ujung.",
+            "de": "Dateien ablegen, Code scannen: über dein eigenes WLAN, Ende-zu-Ende-verschlüsselt.",
+            "tr": "Dosyaları bırak, kodu okut: kendi Wi-Fi'ında, uçtan uca şifreli gider.",
+            "ko": "파일을 놓고 코드를 스캔하세요. 내 Wi-Fi로, 종단 간 암호화되어 가요.",
+            "ja": "ファイルを置いてコードを読むだけ。自分の Wi-Fi で、暗号化して届きます。"
+          }
+        },
+        {
+          "icon": "shield",
+          "title": {
+            "en": "What Puhu keeps",
+            "zh-Hans": "Puhu 保存的内容",
+            "hi": "Puhu क्या रखता है",
+            "es": "Lo que Puhu guarda",
+            "ar": "ما يحتفظ به Puhu",
+            "fr": "Ce que Puhu garde",
+            "bn": "Puhu যা রাখে",
+            "pt-BR": "O que o Puhu guarda",
+            "ru": "Что хранит Puhu",
+            "id": "Yang disimpan Puhu",
+            "de": "Was Puhu aufbewahrt",
+            "tr": "Puhu'nun sakladıkları",
+            "ko": "Puhu가 간직하는 것",
+            "ja": "Puhuが保存しているもの"
+          },
+          "detail": {
+            "en": "Settings → General lists all Puhu keeps and for how long, each with a Clear.",
+            "zh-Hans": "设置 → 通用 列出 Puhu 保存的一切和保存多久，每项都可清除。",
+            "hi": "सेटिंग्स → सामान्य में दिखता है कि Puhu क्या और कब तक रखता है; सब साफ़ हो सकता है।",
+            "es": "Ajustes → General muestra qué guarda Puhu y hasta cuándo; todo se borra.",
+            "ar": "قسم «عام» في الإعدادات يعرض ما يحفظه Puhu ولأي مدة، ويمكن مسح كل شيء.",
+            "fr": "Réglages → Général : ce que Puhu garde, combien de temps ; tout s'efface.",
+            "bn": "সেটিংস → সাধারণ-এ Puhu কী কত দিন রাখে সব দেখা যায়; সবই মোছা যায়।",
+            "pt-BR": "Ajustes → Geral mostra o que o Puhu guarda e até quando; tudo se apaga.",
+            "ru": "«Настройки → Основные»: что и сколько хранит Puhu; всё можно стереть.",
+            "id": "Pengaturan → Umum: yang disimpan Puhu dan berapa lama; semua bisa dihapus.",
+            "de": "Einstellungen → Allgemein zeigt, was Puhu wie lange aufbewahrt; alles lässt sich leeren.",
+            "tr": "Ayarlar → Genel'de Puhu'nun tuttuğu her şey ve süresi var; her biri temizlenebilir.",
+            "ko": "설정 → 일반에서 Puhu가 무엇을 얼마나 간직하는지 보고, 모두 지울 수 있어요.",
+            "ja": "設定 → 一般 で、Puhu が何をいつまで保存するか確認でき、すべて消去できます。"
+          }
+        }
+      ]
+    },
+    {
       "version": "0.6.2",
       "items": [
         {

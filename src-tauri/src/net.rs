@@ -111,10 +111,14 @@ pub fn anthropic_endpoint(raw: &str) -> Result<Url, String> {
 
 /// A client for `url`: requests to this machine skip any system proxy, which
 /// would otherwise see (and usually fail) a loopback address.
+///
+/// No redirects: a key in a header of its own (`x-api-key`) would follow one to another
+/// host, where only Authorization is dropped.
 pub fn client(url: &Url, timeout: Duration) -> Result<reqwest::Client, String> {
     let mut builder = reqwest::Client::builder()
         .connect_timeout(Duration::from_secs(10).min(timeout))
-        .timeout(timeout);
+        .timeout(timeout)
+        .redirect(reqwest::redirect::Policy::none());
     if is_loopback_url(url) {
         builder = builder.no_proxy();
     }

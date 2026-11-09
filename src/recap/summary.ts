@@ -32,9 +32,21 @@ export interface RecapPrefs {
   lastShownWeek: string;
 }
 
+/** What the turns and decisions past recap.rs's 4-week window added up to. */
+export interface RecapTotals {
+  sessions: number;
+  /** Wall time, parallel sessions counted once. */
+  seconds: number;
+  linesAdded: number;
+  /** Allow, Always or Deny clicked. */
+  answered: number;
+}
+
 export interface RecapHistory {
   turns: RecapTurn[];
   decisions: RecapDecision[];
+  /** Missing in the sample week and from a Puhu before 0.6.3. */
+  totals?: RecapTotals;
   prefs: RecapPrefs;
 }
 
@@ -55,6 +67,8 @@ export interface WeeklySummary {
   topAgent: string | null;
   topProject: string | null;
   busiestDay: string | null;
+  /** Sessions on each day of the week, Monday first. */
+  daySessions: number[];
   longestSessionMinutes: number;
 }
 
@@ -192,6 +206,7 @@ export function summarize(history: RecapHistory, weekStart: Date): WeeklySummary
     topAgent: topAgent === null ? null : agentName(topAgent),
     topProject: topKey(byProject, byName),
     busiestDay: busiest === null ? null : DAY_NAMES[busiest],
+    daySessions: [1, 2, 3, 4, 5, 6, 0].map((day) => byDay.get(day) ?? 0),
     longestSessionMinutes: Math.floor(longest / 60),
   };
 }

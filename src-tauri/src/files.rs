@@ -1,7 +1,8 @@
 // Dropped files are copied into %LOCALAPPDATA%\Puhu\inbox so the original is
 // never touched and the copy survives the drag source going away. The copy is only
 // there for the chat to read: it goes when the file is let go of (Cancel, the chat's
-// ×), and the inbox is swept of anything older than a day, at launch and on each drop.
+// ×), and the inbox is swept of anything older than a day: at launch, on each drop, and
+// a day after each drop, so a copy goes even while Puhu runs on for days.
 // A file too big for a chat to read is not copied at all.
 
 use std::path::{Path, PathBuf};
@@ -127,6 +128,11 @@ pub fn ingest(source: &str) -> Result<DroppedFile, String> {
         let _ = file.set_modified(SystemTime::now());
     }
     sweep(&dir);
+    // A day on, this copy is past KEEP_FOR: the sweep then takes it even with no drop since.
+    let _ = std::thread::Builder::new().name("puhu-inbox-sweep".into()).stack_size(64 * 1024).spawn(|| {
+        std::thread::sleep(KEEP_FOR + Duration::from_secs(60));
+        sweep_inbox();
+    });
 
     Ok(DroppedFile {
         name,
@@ -142,6 +148,12 @@ pub fn forget(path: &str) {
     if p.parent().and_then(|d| d.canonicalize().ok()) == dir.canonicalize().ok() && p.is_file() {
         let _ = std::fs::remove_file(p);
     }
+}
+
+/// Settings → What Puhu keeps → Clear: every copy goes now.
+#[tauri::command]
+pub fn clear_inbox() {
+    let _ = std::fs::remove_dir_all(inbox_dir());
 }
 
 /// The inbox swept at launch, so a day-old copy goes even without a new drop.

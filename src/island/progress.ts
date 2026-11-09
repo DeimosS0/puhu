@@ -150,6 +150,13 @@ function markShieldSeen(day: number) {
   }
 }
 
+/** The focus rounds in the log (when each ended, how long it ran, ms), for the weekly sky. */
+export function focusRounds(): { at: number; ran: number }[] {
+  return (events as { kind?: string; at?: number; ran?: number }[])
+    .filter((e) => e.kind === "focus" && typeof e.at === "number" && typeof e.ran === "number")
+    .map((e) => ({ at: e.at as number, ran: e.ran as number }));
+}
+
 export function registerProgress(island: ProgressHost) {
   host = island;
   // The Nest bought something: the log changed under this window.

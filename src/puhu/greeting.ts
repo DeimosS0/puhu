@@ -22,7 +22,48 @@ const T = {
   COLLAPSE: 0.34,
 };
 
-export const GREETING_END = T.end;
+// ── Pace ──────────────────────────────────────────────────────────────────────
+
+/**
+ * The hello's beats are written in tight beat time (greetPose, T); played as written
+ * (4.6 s) they felt rushed, and at 7.4 s too long for a launch. Here each beat gets its
+ * own length and the moments between them a short breath, 5.7 s in all: [beat time,
+ * seconds] pairs, straight lines in between, one for one past the last. The wings beat
+ * slower, the shake and the wave are gentler, he holds each look a moment.
+ * greeting.wav (scripts/make-sounds.py) is placed on the same table.
+ */
+const PACE: readonly (readonly [number, number])[] = [
+  [0, 0], // the island opens
+  [0.2, 0.25], // he flies down
+  [0.64, 0.95], // lands, bounces
+  [0.96, 1.4], // a breath
+  [0.98, 1.55], // feathers up, shaken out
+  [1.46, 2.2], // a breath
+  [1.5, 2.3], // looks right, then left
+  [2.06, 3.15], // hoo-hoo
+  [2.38, 3.65], // waves a wing
+  [2.96, 4.4], // settles, looks down to his place
+  [4.6, 5.7],
+];
+
+/** A straight line between the table's pairs: `from` → `to` (0 beat time, 1 seconds). */
+function along(value: number, from: 0 | 1, to: 0 | 1): number {
+  for (let i = 1; i < PACE.length; i++) {
+    const [a, b] = [PACE[i - 1], PACE[i]];
+    if (value <= b[from]) return a[to] + ((value - a[from]) / (b[from] - a[from])) * (b[to] - a[to]);
+  }
+  const last = PACE[PACE.length - 1];
+  return last[to] + (value - last[from]);
+}
+
+/** Seconds since the start for a beat time. */
+export const paced = (beat: number) => along(Math.max(0, beat), 0, 1);
+/** The beat time at so many seconds since the start. */
+const beatAt = (seconds: number) => along(Math.max(0, seconds), 1, 0);
+
+export const GREETING_END = paced(T.end);
+/** Left alone (no hover), the greeting folds itself away then. */
+const AUTO_LEAVE = paced(T.autoLeave);
 
 /** The greeting's own sound, played from the start (greeting.wav). */
 const GREETING_SOUND = "greeting";
@@ -212,8 +253,8 @@ function smallPose(): Pose {
 
 /** Puhu's pose `t` seconds in; `tc` is when the collapse began (∞ if not yet). */
 export function greetingPose(t: number, tc = Number.POSITIVE_INFINITY): Pose {
-  if (t < tc) return greetPose(Math.min(t, T.end + 10));
-  const a = greetPose(tc);
+  if (t < tc) return greetPose(Math.min(beatAt(t), T.end + 10));
+  const a = greetPose(beatAt(tc));
   const b = smallPose();
   // Same curve and duration (340 ms) as the island shrinking around him, so it
   // never gets ahead of him and cuts his body off when the greeting is left early.
@@ -457,7 +498,7 @@ function drawParticles(x: CanvasRenderingContext2D, t: number, p: Pose) {
   const R = HB / 2 / PUHU_RY;
   x.fillStyle = puhuCss().body;
   for (const f of FEATHERS) {
-    const age = t - f.t0;
+    const age = t - paced(f.t0);
     if (age <= 0 || age > 1.4) continue;
     const swing = Math.sin(age * 4 + f.phase);
     x.save();
@@ -494,7 +535,7 @@ function drawMinis(x: CanvasRenderingContext2D, alpha: number) {
 
 /**
  * Runs the greeting animation on its own canvas. `onComplete` fires once at
- * T.end (or right after the collapse when interrupted) so the FSM can move on.
+ * GREETING_END (or right after the collapse when interrupted) so the FSM can move on.
  */
 export class Greeting {
   private startMs = 0;
@@ -512,12 +553,12 @@ export class Greeting {
     // The score plays from the start; it outlives greetComplete a little on
     // purpose and fades when the greeting view goes away (see leave()).
     Sound.play(GREETING_SOUND);
-    this.timers.push(window.setTimeout(() => this.fire(), (T.end + 0.05) * 1000));
+    this.timers.push(window.setTimeout(() => this.fire(), (GREETING_END + 0.05) * 1000));
   }
 
   /** Mouse entered the island during the greeting — hold it open. */
   hover() {
-    if (this.tc >= T.autoLeave) this.tc = Number.POSITIVE_INFINITY;
+    if (this.tc >= AUTO_LEAVE) this.tc = Number.POSITIVE_INFINITY;
   }
 
   /** Mouse left — collapse from now. */
@@ -556,7 +597,7 @@ export class Greeting {
 
   draw(x: CanvasRenderingContext2D) {
     const t = this.elapsed;
-    if (!this.fired && t >= T.end && this.tc >= T.autoLeave) this.fire();
+    if (!this.fired && t >= GREETING_END && this.tc >= AUTO_LEAVE) this.fire();
 
     const p = greetingPose(t, this.tc);
     x.clearRect(0, 0, GREETING_W, GREETING_H);

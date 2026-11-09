@@ -130,11 +130,13 @@ export function soFar(input: StatsInput): Stat[] {
   const turns = input.history?.turns ?? [];
   const decisions = input.history?.decisions ?? [];
   const answered = decisions.filter((d) => d.decision === "allow" || d.decision === "always" || d.decision === "deny");
+  // The weeks Rust no longer keeps in detail, as totals.
+  const before = input.history?.totals;
   const all: Stat[] = [
-    { kind: "agentSessions", value: turns.length },
-    { kind: "agentTime", value: whole(mergedSeconds(turns) / 60) },
-    { kind: "linesAdded", value: turns.reduce((n, t) => n + whole(t.linesAdded), 0) },
-    { kind: "approvals", value: answered.length },
+    { kind: "agentSessions", value: turns.length + whole(before?.sessions) },
+    { kind: "agentTime", value: whole((mergedSeconds(turns) + whole(before?.seconds)) / 60) },
+    { kind: "linesAdded", value: turns.reduce((n, t) => n + whole(t.linesAdded), 0) + whole(before?.linesAdded) },
+    { kind: "approvals", value: answered.length + whole(before?.answered) },
     { kind: "words", value: whole(input.flow?.words) },
     { kind: "saved", value: whole(input.flow?.minutesSaved) },
     { kind: "calls", value: whole(input.calls) },
@@ -152,6 +154,7 @@ export function usedBefore(facts: {
   return facts.consent != null
     || (facts.history?.turns.length ?? 0) > 0
     || (facts.history?.decisions.length ?? 0) > 0
+    || (facts.history?.totals?.sessions ?? 0) > 0
     || facts.dictations > 0
     || facts.notes > 0;
 }

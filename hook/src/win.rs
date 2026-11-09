@@ -4,14 +4,20 @@
 //! Named pipes live in a machine-wide namespace, so `\\.\pipe\puhu-<name>` can
 //! be created by *any* account that gets there first. Two defences, both cheap:
 //! the pipe name carries our SID, and once connected we check the server process
-//! really belongs to us before sending anything.
+//! really belongs to us before sending anything: our user, at our integrity level or
+//! above, and not in an AppContainer. A sandboxed process of the same user could
+//! otherwise take the name while Puhu is closed, read every tool call and answer
+//! "allow".
 
 use std::time::{Duration, Instant};
 
 use windows::core::PWSTR;
 use windows::Win32::Foundation::{CloseHandle, HANDLE, LocalFree, HLOCAL};
 use windows::Win32::Security::Authorization::ConvertSidToStringSidW;
-use windows::Win32::Security::{GetTokenInformation, TokenUser, TOKEN_QUERY, TOKEN_USER};
+use windows::Win32::Security::{
+    GetSidSubAuthority, GetSidSubAuthorityCount, GetTokenInformation, TokenIntegrityLevel, TokenIsAppContainer,
+    TokenUser, TOKEN_MANDATORY_LABEL, TOKEN_QUERY, TOKEN_USER,
+};
 use windows::Win32::System::Pipes::GetNamedPipeServerProcessId;
 use windows::Win32::System::Threading::{
     GetCurrentProcess, OpenProcess, OpenProcessToken, PROCESS_QUERY_LIMITED_INFORMATION,
@@ -76,9 +82,43 @@ pub fn pipe_server_is_same_user(handle: HANDLE) -> bool {
             return false;
         };
         let theirs = token_sid(process);
+        let their_trust = token_trust(process);
         let _ = CloseHandle(process);
+        let Some(my_trust) = token_trust(GetCurrentProcess()) else { return false };
         theirs.as_deref() == Some(mine.as_str())
+            && their_trust.is_some_and(|(level, contained)| !contained && level >= my_trust.0)
     }
+}
+
+/// A process's integrity level (its label's last RID: low 0x1000, medium 0x2000, high
+/// 0x3000) and whether it runs in an AppContainer. `process` is borrowed, never closed.
+unsafe fn token_trust(process: HANDLE) -> Option<(u32, bool)> {
+    let mut token = HANDLE::default();
+    OpenProcessToken(process, TOKEN_QUERY, &mut token).ok()?;
+    let mut needed = 0u32;
+    let _ = GetTokenInformation(token, TokenIntegrityLevel, None, 0, &mut needed);
+    let mut label = vec![0u8; needed.max(1) as usize];
+    let labelled = GetTokenInformation(token, TokenIntegrityLevel, Some(label.as_mut_ptr().cast()), needed, &mut needed).is_ok();
+    let mut contained = 0u32;
+    let mut size = 0u32;
+    let asked = GetTokenInformation(
+        token,
+        TokenIsAppContainer,
+        Some((&mut contained as *mut u32).cast()),
+        std::mem::size_of::<u32>() as u32,
+        &mut size,
+    )
+    .is_ok();
+    let _ = CloseHandle(token);
+    if !labelled || !asked {
+        return None;
+    }
+    let sid = (*(label.as_ptr() as *const TOKEN_MANDATORY_LABEL)).Label.Sid;
+    let count = *GetSidSubAuthorityCount(sid);
+    if count == 0 {
+        return None;
+    }
+    Some((*GetSidSubAuthority(sid, u32::from(count) - 1), contained != 0))
 }
 
 /// The user SID behind a process handle. `process` is borrowed, never closed.

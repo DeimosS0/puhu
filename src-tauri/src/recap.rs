@@ -7,9 +7,10 @@
 //
 // The history lives in recap.json under platform::local_dir()
 // (%LOCALAPPDATA%\Puhu on Windows, ~/.local/share/puhu on Linux), keeps a
-// 12-week rolling window and a hard cap on its length, and is written whole to
-// a temporary file then renamed over the old one, so a crash never leaves half
-// a file. Nothing in it ever leaves the machine.
+// 4-week rolling window (last week, and the one before to compare it with) and a
+// hard cap on its length; what falls out of it only adds to a few running totals.
+// It is written whole to a temporary file then renamed over the old one, so a
+// crash never leaves half a file. Nothing in it ever leaves the machine.
 //
 // Aggregation (weeks, top agent, busiest day…) happens in the island
 // (src/recap/summary.ts): it needs the user's time zone, which JavaScript has
@@ -28,8 +29,8 @@ use tauri::{AppHandle, Emitter, Manager, State};
 use crate::island::WINDOW_LABEL;
 use crate::platform;
 
-/// 12 weeks.
-pub const WINDOW_SECS: i64 = 12 * 7 * 86_400;
+/// 4 weeks.
+pub const WINDOW_SECS: i64 = 4 * 7 * 86_400;
 /// A turn with no event for two hours is closed at its last event (agent
 /// crashed, or never sent Stop) — RecapStore.pruneStale.
 const STALE_SECS: i64 = 2 * 3600;
@@ -108,27 +109,73 @@ impl Default for Prefs {
     }
 }
 
+/// What the turns and decisions gone past the window added up to, so "your Puhu so
+/// far" stays whole once their details are forgotten.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct Totals {
+    pub sessions: u64,
+    /// Wall time, parallel sessions counted once (as the island's mergedSeconds).
+    pub seconds: u64,
+    pub lines_added: u64,
+    /// Allow, Always or Deny clicked.
+    pub answered: u64,
+}
+
+impl Totals {
+    fn add_turns(&mut self, turns: &[Turn]) {
+        self.sessions += turns.len() as u64;
+        self.seconds += merged_seconds(turns);
+        self.lines_added += turns.iter().map(|t| t.lines_added as u64).sum::<u64>();
+    }
+
+    fn add_decisions(&mut self, decisions: &[Decision]) {
+        self.answered += decisions.iter().filter(|d| matches!(d.decision.as_str(), "allow" | "always" | "deny")).count() as u64;
+    }
+}
+
+/// The time the turns cover, overlapping ones counted once.
+fn merged_seconds(turns: &[Turn]) -> u64 {
+    let mut spans: Vec<(i64, i64)> = turns.iter().filter(|t| t.end > t.start).map(|t| (t.start, t.end)).collect();
+    spans.sort_unstable();
+    let mut total = 0;
+    let mut open: Option<(i64, i64)> = None;
+    for (start, end) in spans {
+        open = match open {
+            Some((from, to)) if start <= to => Some((from, to.max(end))),
+            Some((from, to)) => {
+                total += (to - from) as u64;
+                Some((start, end))
+            }
+            None => Some((start, end)),
+        };
+    }
+    total + open.map_or(0, |(from, to)| (to - from) as u64)
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 struct History {
     schema_version: u32,
     turns: Vec<Turn>,
     decisions: Vec<Decision>,
+    totals: Totals,
     prefs: Prefs,
 }
 
 impl Default for History {
     fn default() -> Self {
-        Self { schema_version: 1, turns: Vec::new(), decisions: Vec::new(), prefs: Prefs::default() }
+        Self { schema_version: 1, turns: Vec::new(), decisions: Vec::new(), totals: Totals::default(), prefs: Prefs::default() }
     }
 }
 
-/// What the island reads: the part of the history it asked for.
+/// What the island reads: the part of the history it asked for, and the totals.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HistoryView {
     pub turns: Vec<Turn>,
     pub decisions: Vec<Decision>,
+    pub totals: Totals,
     pub prefs: Prefs,
 }
 
@@ -332,6 +379,7 @@ impl Recap {
         HistoryView {
             turns: self.history.turns.iter().filter(|t| t.start >= since).cloned().collect(),
             decisions: self.history.decisions.iter().filter(|d| d.date >= since).cloned().collect(),
+            totals: self.history.totals.clone(),
             prefs: self.history.prefs.clone(),
         }
     }
@@ -363,28 +411,36 @@ impl Recap {
         self.save();
     }
 
-    /// Settings → General → Clear history. The preferences stay.
+    /// Settings → What Puhu keeps → Clear: the totals go too. The preferences stay.
     pub fn clear(&mut self) {
         self.history.turns.clear();
         self.history.decisions.clear();
+        self.history.totals = Totals::default();
         self.drafts.clear();
         self.save();
     }
 
-    /// 12-week window, then the hard caps (oldest first out).
+    /// The 4-week window, then the hard caps (oldest first out); what goes only adds
+    /// to the totals.
     fn prune(&mut self, now: i64) {
         let cutoff = now - WINDOW_SECS;
-        self.history.turns.retain(|t| t.start >= cutoff);
-        self.history.decisions.retain(|d| d.date >= cutoff);
+        let (old, kept): (Vec<Turn>, Vec<Turn>) = std::mem::take(&mut self.history.turns).into_iter().partition(|t| t.start < cutoff);
+        self.history.turns = kept;
+        self.history.totals.add_turns(&old);
+        let (old, kept): (Vec<Decision>, Vec<Decision>) = std::mem::take(&mut self.history.decisions).into_iter().partition(|d| d.date < cutoff);
+        self.history.decisions = kept;
+        self.history.totals.add_decisions(&old);
         if self.history.turns.len() > MAX_TURNS {
             self.history.turns.sort_by_key(|t| t.start);
             let excess = self.history.turns.len() - MAX_TURNS;
-            self.history.turns.drain(..excess);
+            let old: Vec<Turn> = self.history.turns.drain(..excess).collect();
+            self.history.totals.add_turns(&old);
         }
         if self.history.decisions.len() > MAX_DECISIONS {
             self.history.decisions.sort_by_key(|d| d.date);
             let excess = self.history.decisions.len() - MAX_DECISIONS;
-            self.history.decisions.drain(..excess);
+            let old: Vec<Decision> = self.history.decisions.drain(..excess).collect();
+            self.history.totals.add_decisions(&old);
         }
     }
 
@@ -903,7 +959,7 @@ mod tests {
     }
 
     #[test]
-    fn twelve_weeks_are_kept_and_older_entries_pruned() {
+    fn four_weeks_are_kept_and_older_entries_only_add_to_the_totals() {
         let dir = scratch("prune");
         let file = dir.join("recap.json");
         let mut r = Recap::load(file.clone(), T0);
@@ -912,7 +968,7 @@ mod tests {
         for start in [old, edge, T0 - HOUR] {
             r.history.turns.push(Turn {
                 agent: "integration_claude".into(), project: "p".into(), start, end: start + 60,
-                files_changed: 0, lines_added: 0, lines_removed: 0, commands_run: 0, questions: 0,
+                files_changed: 0, lines_added: 7, lines_removed: 0, commands_run: 0, questions: 0,
             });
         }
         r.history.decisions.push(Decision { agent: "integration_claude".into(), date: old, decision: "allow".into() });
@@ -920,9 +976,32 @@ mod tests {
         r.save();
         assert_eq!(r.view(0).turns.iter().map(|t| t.start).collect::<Vec<_>>(), [edge, T0 - HOUR]);
         assert!(r.view(0).decisions.is_empty());
-        // Loading later prunes again.
+        assert_eq!(r.view(0).totals, Totals { sessions: 1, seconds: 60, lines_added: 7, answered: 1 });
+        // Loading later prunes again, and the totals add up and survive the file.
         let later = Recap::load(file, T0 + 2 * HOUR);
         assert_eq!(later.view(0).turns.len(), 1);
+        assert_eq!(later.view(0).totals, Totals { sessions: 2, seconds: 120, lines_added: 14, answered: 1 });
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn parallel_turns_count_their_time_once_in_the_totals() {
+        let turn = |start: i64, end: i64| Turn {
+            agent: "a".into(), project: "p".into(), start, end,
+            files_changed: 0, lines_added: 0, lines_removed: 0, commands_run: 0, questions: 0,
+        };
+        // 0–100 and 50–150 overlap; 200–260 stands apart; an empty one adds nothing.
+        assert_eq!(merged_seconds(&[turn(50, 150), turn(0, 100), turn(200, 260), turn(300, 300)]), 210);
+        assert_eq!(merged_seconds(&[]), 0);
+    }
+
+    #[test]
+    fn clearing_the_history_clears_the_totals_too() {
+        let dir = scratch("clear-totals");
+        let mut r = Recap::load(dir.join("recap.json"), T0);
+        r.history.totals = Totals { sessions: 3, seconds: 90, lines_added: 4, answered: 2 };
+        r.clear();
+        assert_eq!(r.view(0).totals, Totals::default());
         let _ = std::fs::remove_dir_all(&dir);
     }
 

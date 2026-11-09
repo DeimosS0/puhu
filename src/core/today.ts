@@ -14,6 +14,8 @@ export interface TodayTask {
   /** When it was written, and when it was done (ms). */
   created: number;
   doneAt?: number;
+  /** The day Puhu last blew the dust off it (YYYY-MM-DD): once a day is enough. */
+  dusted?: string;
 }
 
 /** Stored key: never rename it. */

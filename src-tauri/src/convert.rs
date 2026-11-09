@@ -289,6 +289,15 @@ fn pdf_of_pictures(pictures: &[(Vec<u8>, u32, u32)]) -> Result<Vec<u8>, String> 
     Ok(out)
 }
 
+/// Where Edge prints from: the page, and the profile it runs with.
+const PRINT_DIR: &str = "puhu-pdf";
+
+/// What printing left from an earlier run: Edge's profile keeps a history of the pages it
+/// printed. Cleared at launch, before anything prints.
+pub fn clear_leftovers() {
+    let _ = std::fs::remove_dir_all(std::env::temp_dir().join(PRINT_DIR));
+}
+
 /// Prints `body` (a document's HTML, its own <style> included) to `out` with Edge, headless;
 /// the number of pages it made.
 /// What core/docx.ts never writes: anything that could take the page elsewhere or pull in
@@ -303,7 +312,7 @@ fn print_pdf(body: &str, out: &Path) -> Result<u32, String> {
     static ONE_AT_A_TIME: Mutex<()> = Mutex::new(());
     let _turn = ONE_AT_A_TIME.lock().unwrap_or_else(|e| e.into_inner());
     let edge = edge().ok_or_else(|| crate::i18n::t("Microsoft Edge is needed to make this PDF."))?;
-    let dir = std::env::temp_dir().join("puhu-pdf");
+    let dir = std::env::temp_dir().join(PRINT_DIR);
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     static NEXT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
     let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);

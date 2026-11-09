@@ -24,11 +24,6 @@ const PACKAGES = {
       suffix: "-setup.exe",
       names: [`Puhu-Windows-${version}-setup.exe`, "Puhu-Windows-setup.exe"],
     },
-    {
-      dir: "msi",
-      suffix: ".msi",
-      names: [`Puhu-Windows-${version}.msi`, "Puhu-Windows.msi"],
-    },
   ],
   linux: [
     {

@@ -67,7 +67,7 @@ mod imp {
 
     fn finished(app: &AppHandle, path: &Path) {
         // A file Puhu made from a drop (a PDF beside a downloaded photo) is no download.
-        if crate::convert::is_made(path) {
+        if crate::convert::is_made(path) || crate::phone::is_received(path) {
             return;
         }
         let Some(name) = path.file_name().map(|n| n.to_string_lossy().into_owned()) else { return };

@@ -11,6 +11,7 @@ import { buildChoose, buildUpload, buildUploading } from "./upload";
 import { buildConvert } from "./convert";
 import { buildQuick, buildTimerDone } from "./quick";
 import { USB_ICON, buildUsb } from "./usb";
+import { buildPhone } from "./phone";
 import type { TimerSpec } from "../core/timer";
 import type { ConvertKind } from "../island/convert";
 import { renderIntegrationCard, type IntegrationCardHooks } from "./integrations";
@@ -55,6 +56,12 @@ export interface ViewActions {
   timerAnswer(more: boolean): void;
   /** A USB drive was ejected from its card: Puhu waves it off. */
   usbEjected(): void;
+  /** Send to phone's card (views/phone.ts): Cancel or Done, "it's mine", Downloads. */
+  phoneClose(): void;
+  phoneTrust(): void;
+  phoneDownloads(): void;
+  /** The + tab's "Get from phone". */
+  phoneReceive(): void;
   collapse(): void;
   /** Folds a waiting card to the compact island without answering it. */
   foldApproval(): void;
@@ -905,13 +912,14 @@ export function buildViews(
   map.set("note", buildNote());
   map.set("settings", buildSettings(actions));
   map.set("prompt", buildPrompt(onChatHeightChange));
-  map.set("upload", buildUpload());
+  map.set("upload", buildUpload(actions));
   map.set("uploading", buildUploading());
   map.set("choose", buildChoose(actions));
   map.set("convert", buildConvert(actions));
   map.set("quick", buildQuick(actions));
   map.set("timerDone", buildTimerDone(actions));
   map.set("usb", buildUsb(actions));
+  map.set("phone", buildPhone(actions));
   map.set("recap", buildRecap(actions));
   map.set("wardrobe", buildWardrobe(actions));
   map.set("update", buildUpdate());
