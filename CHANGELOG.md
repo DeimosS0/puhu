@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.6.4
+
+Puhu rings until you answer, reads the text in a picture and does your sums.
+
+- **Alarms that wait for you**: a timer that ends comes down from the island and rings until
+  you say OK, every few seconds for a minute, then every half minute. After ten minutes the
+  sound stops but the card stays, and Puhu rings once more when you are back at the
+  computer. It rings though Puhu's sounds are off, and in a game (its card comes when the
+  game is over).
+- **Today's times ring too**: a thing on Today's list with a time gets a word ten minutes
+  before and its alarm at the time, Puhu holding a little brass bell; OK ticks it, +10 min
+  puts it off. A time that went by while Puhu was not running is told once. Settings →
+  General → Today → Reminders: 10 or 5 minutes before, at its time, or off.
+- **Copy text**: in the screenshot viewer (Win+Shift+S, then a click on the picture in the
+  island) or on a picture dropped on the island. Windows' own text recognizer reads it on
+  your computer, in your languages: a light crosses the picture, every word it finds lights
+  up, and the text is on the clipboard. Drag over a few words to copy just those. Nothing is
+  sent anywhere or kept.
+- **Sums on the pull-down line**: write "1250*1,18" or "450 + %18" where timers go: the
+  result shows as you type, Enter copies it. Numbers are read the way your language writes
+  them, percentages the way a shop's calculator takes them.
+
 ## 0.6.3
 
 Your week as a sky, files to and from your phone, and a Puhu who keeps less and says what he

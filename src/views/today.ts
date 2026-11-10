@@ -79,6 +79,13 @@ export const Today = {
     tasks = tasks.filter((x) => x.id !== id);
     save();
   },
+  /** What its time's reminders have done (core/today.ts nextReminder); undefined clears one. */
+  mark(id: string, marks: Pick<TodayTask, "told" | "rang" | "again">) {
+    const task = tasks.find((x) => x.id === id);
+    if (!task) return;
+    Object.assign(task, marks);
+    save();
+  },
   /** Puhu blew the dust off these today: they stay clean until tomorrow. */
   dusted(ids: readonly string[]) {
     const today = dayKey(new Date());

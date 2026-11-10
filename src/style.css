@@ -152,6 +152,19 @@ body {
   cursor: pointer;
 }
 
+/* Ask about the drop keeps only its bubble where the row has no room (UploadCanvas). */
+.upload-ask svg {
+  display: none;
+}
+
+.upload-row.tight .upload-ask svg {
+  display: block;
+}
+
+.upload-row.tight .upload-ask span {
+  display: none;
+}
+
 /* In the card's corner. */
 #upload-overlay .upload-x {
   top: 54px;
@@ -313,6 +326,8 @@ body {
 
 #shot img {
   display: block;
+  -webkit-user-drag: none;
+  user-select: none;
   border-radius: 10px;
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1);
   object-fit: cover;
@@ -360,7 +375,7 @@ body {
 }
 
 #shot-side .meta {
-  margin: 64px 0 auto;
+  margin: 52px 0 auto;
   text-align: center;
   font: 500 11px var(--font);
   color: var(--dim-2);
@@ -5808,6 +5823,74 @@ html[data-dir="rtl"] #views :is(.bubble, .reply .md-p, .reply .md-h, .reply .md-
 }
 
 /* Paparazzi: the camera's flash over the screenshot as it lands. */
+/* Copy text (Island.readShot): a light crosses the picture once, and every word Windows
+   found lights up as it passes. A word dragged over is picked like text anywhere. */
+#shot .scan {
+  position: absolute;
+  inset: 0;
+  border-radius: 10px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+#shot .scan i {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 34%;
+  background: linear-gradient(90deg, rgba(255, 196, 64, 0) 0%, rgba(255, 206, 102, 0.26) 66%, rgba(255, 234, 186, 0.72) 96%, rgba(255, 196, 64, 0) 100%);
+  opacity: 0;
+}
+
+#shot.scanning .scan i {
+  animation: shot-scan 0.9s cubic-bezier(0.45, 0, 0.25, 1);
+}
+
+@keyframes shot-scan {
+  0% { opacity: 0; transform: translateX(-100%); }
+  14%, 86% { opacity: 1; }
+  100% { opacity: 0; transform: translateX(300%); }
+}
+
+#shot .shot-words {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* Read, the picture takes the pointer: a drag picks words (Island.pickWords). */
+#shot .shot-words.read {
+  pointer-events: auto;
+  cursor: text;
+  touch-action: none;
+}
+
+#shot .shot-words span {
+  position: absolute;
+  border-radius: 3px;
+  background: rgba(255, 196, 64, 0.2);
+  box-shadow: 0 0 0 1px rgba(255, 196, 64, 0.5);
+  color: transparent;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  user-select: none;
+  opacity: 0;
+  transform: scale(0.8);
+  transition: background 0.12s ease-out, box-shadow 0.12s ease-out;
+  animation: word-lit 0.34s cubic-bezier(0.34, 1.56, 0.64, 1) var(--d, 0ms) forwards;
+}
+
+#shot .shot-words span.picked {
+  background: rgba(70, 145, 255, 0.5);
+  box-shadow: 0 0 0 1.5px rgba(110, 175, 255, 0.95);
+}
+
+@keyframes word-lit {
+  to { opacity: 1; transform: none; }
+}
+
 #shot .flash {
   position: absolute;
   inset: 0;
@@ -6168,6 +6251,59 @@ html[data-dir="rtl"] #views :is(.bubble, .reply .md-p, .reply .md-h, .reply .md-
 .quick-reading svg {
   color: #ffb340;
   flex: 0 0 auto;
+}
+
+/* A sum's result (core/calc.ts), large enough to read at a glance; copied, it pops once. */
+.quick-sum {
+  font: 650 15px var(--font);
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+
+.quick-reading.copied .quick-sum {
+  animation: sum-copied 0.42s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.quick-reading.copied svg {
+  color: #6ccb5f;
+}
+
+@keyframes sum-copied {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.12); }
+  100% { transform: scale(1); }
+}
+
+/* The drop's choose card: each button on one line, and Ask a question keeps only its
+   bubble where a language's words leave the row no room. */
+.choose-actions .btn {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.choose-ask svg {
+  display: none;
+}
+
+.choose-actions.tight .choose-ask svg {
+  display: block;
+}
+
+.choose-actions.tight .choose-ask span {
+  display: none;
+}
+
+/* The alarm's card gives a little shake with every ring (Island.ringAlarm). */
+.alarm-card.ring {
+  animation: alarm-ring 0.62s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+
+@keyframes alarm-ring {
+  0%, 100% { transform: none; }
+  15% { transform: translateY(1px) rotate(-1.2deg); }
+  35% { transform: rotate(1deg); }
+  55% { transform: rotate(-0.6deg); }
+  75% { transform: rotate(0.3deg); }
 }
 
 .quick-chips {

@@ -114,6 +114,9 @@ windows = { version = "0.61", features = [
   "Graphics_Capture",
   # Files dropped on the island made into a PDF or a smaller picture (convert.rs).
   "Graphics_Imaging",
+  # Copy text in the screenshot viewer (ocr.rs): Windows' own text recognizer.
+  "Media_Ocr",
+  "Foundation_Collections",
   # USB drives caught and ejected from the island (usb.rs): volumes coming and going, the
   # disk a letter lives on, the USB device asked to stop.
   "Win32_Devices_DeviceAndDriverInstallation",

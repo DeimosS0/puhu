@@ -110,6 +110,9 @@ pub struct Settings {
     /// Count working time for the weekly sky (activity.rs, docs/weekly-card.md): None
     /// until asked on the first weekly card, then the answer. Off, nothing is counted.
     pub count_work: Option<bool>,
+    /// Today's list: minutes before a thing's time that Puhu says it is coming (0: only
+    /// the alarm at its time; below 0: no reminders). 10 by default.
+    pub today_remind: i32,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -184,6 +187,7 @@ impl Default for Settings {
             game_apps: BTreeMap::new(),
             weather_place: None,
             count_work: None,
+            today_remind: 10,
         }
     }
 }
@@ -484,7 +488,8 @@ mod tests {
   "gameMode": false,
   "gameApps": { "cs2": { "name": "Counter-Strike 2", "on": true }, "chrome": { "name": "YouTube", "on": false } },
   "weatherPlace": { "name": "İzmir, Türkiye", "lat": 38.42, "lon": 27.14 },
-  "countWork": true
+  "countWork": true,
+  "todayRemind": 5
 }"##;
 
     fn custom() -> Value {
@@ -891,6 +896,7 @@ mod tests {
                 "gameApps",
                 "weatherPlace",
                 "countWork",
+                "todayRemind",
             ]
         );
         let _ = std::fs::remove_dir_all(&dir);

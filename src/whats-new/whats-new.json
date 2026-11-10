@@ -2,6 +2,116 @@
   "about": "What's new, shown once in the island after Puhu updates (src/whats-new/). Every release adds its entry here, in the 14 languages: 1 to 4 items, a short title and one line each, an icon from ICON_NAMES in src/whats-new/whats-new.ts.",
   "releases": [
     {
+      "version": "0.6.4",
+      "items": [
+        {
+          "icon": "bell",
+          "title": {
+            "en": "It rings until you say OK",
+            "zh-Hans": "响到你点“好”为止",
+            "hi": "जब तक आप ठीक न कहें, बजता रहे",
+            "es": "Suena hasta que digas OK",
+            "ar": "يرنّ حتى تضغط حسنًا",
+            "fr": "Ça sonne jusqu’à votre OK",
+            "bn": "ঠিক আছে না বলা পর্যন্ত বাজে",
+            "pt-BR": "Toca até você dizer OK",
+            "ru": "Звонит, пока не нажмёте ОК",
+            "id": "Berdering sampai kamu bilang OK",
+            "de": "Klingelt, bis du OK sagst",
+            "tr": "Tamam diyene kadar çalar",
+            "ko": "확인을 누를 때까지 울려요",
+            "ja": "OK を押すまで鳴ります"
+          },
+          "detail": {
+            "en": "Timers and the times on Today's list ring until OK, with a word 10 min before.",
+            "zh-Hans": "计时器和今日清单上的时间会一直响到你点“好”，并提前 10 分钟提醒。",
+            "hi": "टाइमर और आज की सूची के समय ठीक कहने तक बजते हैं, 10 मिनट पहले एक सूचना के साथ।",
+            "es": "Los temporizadores y las horas de tu lista suenan hasta el OK, con aviso 10 min antes.",
+            "ar": "المؤقتات وأوقات قائمة اليوم ترنّ حتى تضغط حسنًا، مع تنبيه قبلها بعشر دقائق.",
+            "fr": "Minuteurs et heures de votre liste sonnent jusqu’au OK, avec un mot 10 min avant.",
+            "bn": "টাইমার আর তালিকার সময় ঠিক আছে না বলা পর্যন্ত বাজে; ১০ মিনিট আগে জানায়।",
+            "pt-BR": "Timers e os horários da lista tocam até o OK, com um aviso 10 min antes.",
+            "ru": "Таймеры и время дел из списка звонят до «ОК», а за 10 минут — напоминание.",
+            "id": "Timer dan jam di daftarmu berdering sampai OK, diingatkan 10 mnt sebelumnya.",
+            "de": "Timer und Uhrzeiten deiner Liste klingeln bis OK, mit Hinweis 10 Min. vorher.",
+            "tr": "Zamanlayıcılar ve listendeki saatler Tamam diyene kadar çalar; 10 dk önce haber verir.",
+            "ko": "타이머와 오늘 목록의 시간은 확인할 때까지 울리고, 10분 전에 미리 알려 줘요.",
+            "ja": "タイマーと今日のリストの時刻は OK まで鳴り、10 分前にもひと声かけます。"
+          }
+        },
+        {
+          "icon": "eye",
+          "title": {
+            "en": "Copy text from a picture",
+            "zh-Hans": "从图片中复制文字",
+            "hi": "तस्वीर से टेक्स्ट कॉपी करें",
+            "es": "Copia el texto de una imagen",
+            "ar": "انسخ النص من صورة",
+            "fr": "Copiez le texte d’une image",
+            "bn": "ছবি থেকে লেখা কপি",
+            "pt-BR": "Copie o texto de uma imagem",
+            "ru": "Копируйте текст с картинки",
+            "id": "Salin teks dari gambar",
+            "de": "Text aus einem Bild kopieren",
+            "tr": "Resimdeki yazıyı kopyala",
+            "ko": "사진 속 글자 복사",
+            "ja": "画像の文字をコピー"
+          },
+          "detail": {
+            "en": "Win+Shift+S, then Copy text: read on your computer, every word lit up.",
+            "zh-Hans": "按 Win+Shift+S，再点“复制文字”：在你的电脑上识别，每个字都会亮起。",
+            "hi": "Win+Shift+S, फिर टेक्स्ट कॉपी करें: आपके कंप्यूटर पर ही पढ़ा जाता है, हर शब्द चमकता है।",
+            "es": "Win+Shift+S y Copiar texto: se lee en tu equipo y cada palabra se ilumina.",
+            "ar": "Win+Shift+S ثم نسخ النص: يُقرأ على جهازك وتضيء كل كلمة.",
+            "fr": "Win+Maj+S puis Copier le texte : lu sur votre PC, chaque mot s’allume.",
+            "bn": "Win+Shift+S, তারপর লেখা কপি: আপনার কম্পিউটারেই পড়া হয়, প্রতিটি শব্দ জ্বলে ওঠে।",
+            "pt-BR": "Win+Shift+S e Copiar texto: lido no seu computador, cada palavra acende.",
+            "ru": "Win+Shift+S и «Копировать текст»: прямо на ПК, каждое слово светится.",
+            "id": "Win+Shift+S lalu Salin teks: dibaca di komputermu, tiap kata menyala.",
+            "de": "Win+Umschalt+S, dann Text kopieren: auf deinem PC gelesen, jedes Wort leuchtet.",
+            "tr": "Win+Shift+S, sonra Metni kopyala: bilgisayarında okunur, her kelime yanar.",
+            "ko": "Win+Shift+S 후 텍스트 복사: 내 컴퓨터에서 읽고, 단어마다 빛나요.",
+            "ja": "Win+Shift+S で「テキストをコピー」：PC 上で読み取り、単語が光ります。"
+          }
+        },
+        {
+          "icon": "keyboard",
+          "title": {
+            "en": "Sums on the pull-down line",
+            "zh-Hans": "下拉输入行里算账",
+            "hi": "नीचे खींची पंक्ति में हिसाब",
+            "es": "Cuentas en la línea desplegable",
+            "ar": "حسابات في السطر المنسدل",
+            "fr": "Des calculs dans la ligne",
+            "bn": "নিচে টানা লাইনে হিসাব",
+            "pt-BR": "Contas na linha que desce",
+            "ru": "Счёт в выпадающей строке",
+            "id": "Hitung di baris tarik-turun",
+            "de": "Rechnen in der Zeile",
+            "tr": "Aşağı çekilen satırda hesap",
+            "ko": "내려 쓰는 줄에서 계산",
+            "ja": "引き出す行で計算"
+          },
+          "detail": {
+            "en": "Write 450 + %18 where timers go: the result as you type, Enter copies it.",
+            "zh-Hans": "在设计时器的地方写 450 + %18：边写边出结果，按 Enter 复制。",
+            "hi": "जहाँ टाइमर लिखते हैं वहाँ 450 + %18 लिखें: लिखते ही नतीजा, Enter से कॉपी।",
+            "es": "Escribe 450 + %18 en esa línea: el resultado al instante; Enter lo copia.",
+            "ar": "اكتب 450 + %18 حيث تضبط المؤقتات: النتيجة أثناء الكتابة، وEnter ينسخها.",
+            "fr": "Écrivez 450 + %18 là où vont les minuteurs : le résultat s’affiche, Entrée le copie.",
+            "bn": "যেখানে টাইমার লেখেন সেখানে 450 + %18 লিখুন: লিখতেই ফল, Enter চাপলে কপি।",
+            "pt-BR": "Escreva 450 + %18 onde vão os timers: o resultado na hora, Enter copia.",
+            "ru": "Напишите 450 + %18 там, где таймеры: результат сразу, Enter копирует.",
+            "id": "Tulis 450 + %18 di tempat timer: hasilnya langsung muncul, Enter menyalinnya.",
+            "de": "Schreib 450 + %18, wo Timer hingehören: Ergebnis sofort, Enter kopiert es.",
+            "tr": "Zamanlayıcı yazdığın yere 450 + %18 yaz: sonuç anında, Enter kopyalar.",
+            "ko": "타이머를 쓰는 곳에 450 + %18을 쓰면 바로 결과가 나오고, Enter로 복사돼요.",
+            "ja": "タイマーを書く所に 450 + %18：すぐ結果が出て、Enter でコピー。"
+          }
+        }
+      ]
+    },
+    {
       "version": "0.6.3",
       "items": [
         {

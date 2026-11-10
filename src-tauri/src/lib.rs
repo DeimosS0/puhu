@@ -30,6 +30,7 @@ mod log;
 mod mail;
 mod net;
 mod notes;
+mod ocr;
 mod openai_compat;
 mod phone;
 mod pipe;
@@ -1055,6 +1056,10 @@ pub fn run() {
             desktop::desktop_puhu_walk,
             weather::weather_search,
             weather::weather_now,
+            away::alarm_wait_back,
+            ocr::screenshot_text,
+            screenshot::keep_dropped_picture,
+            copied::copy_text,
             desktop::desktop_puhu_set_asleep,
             sounds::custom_sounds,
             sounds::custom_sound,

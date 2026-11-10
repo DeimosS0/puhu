@@ -17,6 +17,13 @@ const MAX_CHARS: usize = 400;
 #[cfg_attr(not(windows), allow(dead_code))]
 const MAX_ASK_CHARS: usize = 20_000;
 
+/// Text the island puts on the clipboard (Copy text's words, a sum's result), from here:
+/// the island's page may not have the focus a webview needs to write it.
+#[tauri::command]
+pub fn copy_text(text: String) -> bool {
+    arboard::Clipboard::new().and_then(|mut clipboard| clipboard.set_text(text)).is_ok()
+}
+
 /// "Ask Puhu" on a copied error: the clipboard's text into the inbox.
 #[tauri::command]
 pub async fn ask_copied() -> Result<crate::files::DroppedFile, String> {

@@ -15,6 +15,7 @@ import { NOWPLAYING_ID, NowPlaying, Spotify, musicPlaying } from "./spotify";
 import type { WeatherPlace } from "./weather";
 import type { Converted, UsbDrive } from "./bridge";
 import type { Timer } from "./timer";
+import type { TodayTask } from "./today";
 
 /** A PDF or a smaller picture being made from a drop (island/convert.ts, views/convert.ts). */
 /** A Send to phone session as its card shows it (island/phone.ts, views/phone.ts). */
@@ -157,6 +158,8 @@ export interface Settings {
   focusGame: boolean | null;
   /** Count working time for the weekly sky (activity.rs): null until asked on the card. */
   countWork: boolean | null;
+  /** Minutes before a Today thing's time that Puhu says it is coming; 0: only at its time; below 0: never. */
+  todayRemind: number;
   /** From this time ("HH:MM", empty: never), the evening ember while a streak waits. */
   focusReminder: string;
   /** Game mode (game.rs): Puhu steps aside while a game fills the screen. */
@@ -228,6 +231,7 @@ export const DEFAULT_SETTINGS: Settings = {
   hideFromCapture: false,
   focusGame: null,
   countWork: null,
+  todayRemind: 10,
   focusReminder: "20:00",
   gameMode: true,
   absenceInterval: 180,
@@ -306,8 +310,8 @@ class AppState {
   phone: PhoneSession | null = null;
   /** The USB drives plugged in (usb.rs), for views/usb.ts and the header's tab. */
   usbDrives: UsbDrive[] = [];
-  /** The timer whose card is ringing (island/timers.ts). */
-  timerRing: Timer | null = null;
+  /** What rings on the alarm card (island/alarm.ts): a timer that ended, or a Today thing at its time. */
+  ringing: { timer?: Timer; task?: TodayTask } | null = null;
   /** Sent by the chat as soon as it is on screen ("Ask Puhu" on a copied error). */
   pendingAsk: string | null = null;
   noteMessage: string | null = null;

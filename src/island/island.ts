@@ -1,7 +1,7 @@
 // The island: DOM shell, sizing animation, Puhu placement, mouse handling.
 
 import { Ease, Tracked, Spring, clamp } from "../core/anim";
-import { Bridge, IS_TAURI, onDragDrop, onEvent } from "../core/bridge";
+import { Bridge, IS_TAURI, onDragDrop, onEvent, type OcrLine, type Shot } from "../core/bridge";
 import {
   CLOSED_BOT_D, CLOSED_H, closedContent, closedFigure, closedIsland, closedWidth, type ClosedContent,
 } from "../core/closed";
@@ -55,10 +55,11 @@ import { DRAG_THRESHOLD, type Dock } from "../puhu/desktop-logic";
 import { Today } from "../views/today";
 import { Timers, formatLeft, progressOf, type Timer, type TimerKind, type TimerSpec } from "../core/timer";
 import { TimerClock } from "./timers";
+import { AlarmBell } from "./alarm";
 import { USB_ICON, bytes, driveName } from "../views/usb";
 import type { PhoneNews, UsbNews } from "../core/bridge";
 import { closePhone, phoneLive, phoneNews, startPhone, trustAndStart, type PhoneHost } from "./phone";
-import { dayKey } from "../core/today";
+import { dayKey, dueAt, nextReminder, type Reminder } from "../core/today";
 import { Updates } from "./update";
 import { UPDATE_BLUE, showsUpdateHint } from "../whats-new/whats-new";
 
@@ -96,7 +97,10 @@ const VIEW_SIDE = 140;
 const VIEW_PAD = 12;
 const VIEW_GAP = 14;
 const VIEW_MIN_W = 400;
-const VIEW_MIN_H = 176;
+const VIEW_MIN_H = 206;
+/** Copy text in the screenshot viewer: a T. How long the light takes to cross the picture. */
+const TEXT_ICON = "M5.5 7.5V5h13v2.5M12 5v14M9 19h6";
+const SCAN_MS = 900;
 const SAVE_ICON = "M12 3a1 1 0 0 1 1 1v8.6l2.8-2.8a1 1 0 1 1 1.4 1.4l-4.5 4.5a1 1 0 0 1-1.4 0l-4.5-4.5a1 1 0 1 1 1.4-1.4L11 12.6V4a1 1 0 0 1 1-1zM5 15a1 1 0 0 1 1 1v2.5c0 .3.2.5.5.5h11c.3 0 .5-.2.5-.5V16a1 1 0 1 1 2 0v2.5a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 18.5V16a1 1 0 0 1 1-1z";
 /** What may come over a card waiting for its answer: a permission or a question (an agent waits on it), and a file being dropped (its own scene). */
 const OVER_WAITING: ReadonlySet<IslandViewName> = new Set(["approval", "question", "upload", "uploading", "choose", "convert"]);
@@ -108,11 +112,13 @@ const POWER_HUD_W = 76;
 /** The running Pomodoro in the compact island; wider with the streak's flame beside it. */
 const POMODORO_W = 72;
 /** A timer's colour in the island (its ring, its dot): what it is for. */
-const TIMER_COLOR: Record<TimerKind, string> = { tea: "#e0763f", coffee: "#c58b5c", egg: "#f2c94c", hourglass: "#ffb340" };
+const TIMER_COLOR: Record<TimerKind, string> = { tea: "#e0763f", coffee: "#c58b5c", egg: "#f2c94c", hourglass: "#ffb340", bell: "#f5c04a" };
 /** Pulled down this far, the compact island opens on the line to write a timer or a thing to do. */
 const PULL_OPEN = 22;
-/** A timer that rang and was left: it rings again after this long, once. */
-const RING_AGAIN_MS = 20_000;
+/** Today's reminders (Island.remind): their bell, its colour, and how long a word stays. */
+const BELL_ICON = "M6.5 16.5V11a5.5 5.5 0 0 1 11 0v5.5l1.6 2H4.9zM10 20.6a2.1 2.1 0 0 0 4 0M12 3.4v2.1";
+const BELL_COLOR = "#f5c04a";
+const REMIND_SECONDS = 6;
 /** USB drives in the island: their colour, and how long the peek stays. */
 const USB_COLOR = "#7cc4ff";
 const USB_SECONDS = 4;
@@ -408,6 +414,11 @@ export class Island {
   private viewSide!: HTMLElement;
   private viewMeta!: HTMLElement;
   private viewSave!: HTMLButtonElement;
+  private viewText!: HTMLButtonElement;
+  /** Copy text's words lit over the picture, and what Windows read in it (ocr.rs). */
+  private shotWords!: HTMLElement;
+  private shotRead: { name: string; lines: OcrLine[] } | null = null;
+  private reading = false;
   private wasViewing = false;
   /** A running Pomodoro in the compact island: its ring and what is left. */
   private pomodoroEl!: HTMLElement;
@@ -427,8 +438,10 @@ export class Island {
   private greetingCanvas!: HTMLCanvasElement;
   private miniGrid!: HTMLElement;
   private timers!: TimerClock;
-  /** When the timer on the card rang (or rang again), for the one ring more. */
-  private ringAgain: number | null = null;
+  /** What rings until it is answered: a timer that ended, a Today thing at its time. */
+  private bell!: AlarmBell;
+  /** The next thing to say about Today's times (syncReminders). */
+  private remindTimer: number | null = null;
   private clockEl!: HTMLElement;
   private clockTimer?: number;
   /** The closed island's one line (core/closed.ts), and what it last showed. */
@@ -537,6 +550,7 @@ export class Island {
     // At the top of the screen he dances low: a sway and a small hop, never a jump.
     this.engine.danceHop = 0.35;
     this.timers = new TimerClock({ tick: () => this.timerTick(), ring: (t) => this.ringTimer(t) });
+    this.bell = new AlarmBell({ ring: (first) => this.ringAlarm(first) });
     this.desktop = new DesktopLink({
       reveal: () => this.reveal(),
       wardrobeFromDesktop: () => this.wardrobeFromDesktop(),
@@ -560,6 +574,8 @@ export class Island {
     });
     this.scheduleEvening();
     this.timers.sync();
+    Today.subscribe(() => this.syncReminders());
+    this.syncReminders();
   }
 
   /** The evening's word, at EVENING_HOUR: one timer for the day, nothing polls. */
@@ -652,7 +668,12 @@ export class Island {
         this.timers.sync();
         this.views.get("quick")?.sync();
       },
-      timerAnswer: (more) => this.answerTimer(more),
+      timerAnswer: (more) => this.answerAlarm(more),
+      sumCopied: () => {
+        this.engine.triggerEmote("happy");
+        Sound.play("pop");
+        this.ensureRunning();
+      },
       usbEjected: () => {
         this.engine.raiseWing();
         Sound.play("approve");
@@ -667,6 +688,7 @@ export class Island {
         window.setTimeout(() => this.collapse(), 320);
       },
       convert: (kind) => this.convertDrop(kind),
+      pictureText: () => void this.pictureText(),
       collapse: () => this.collapse(),
       foldApproval: () => this.foldApproval(),
       setFocus: (id) => {
@@ -791,8 +813,9 @@ export class Island {
     this.buildPowerHud();
     this.buildPomodoro();
     this.buildInfoHud();
-    this.shotImg = h("img", { alt: "" }) as HTMLImageElement;
-    this.shotEl = h("div", { id: "shot" }, this.shotImg, h("div", { class: "flash" }));
+    this.shotImg = h("img", { alt: "", draggable: "false" }) as HTMLImageElement;
+    this.shotWords = h("div", { class: "shot-words" });
+    this.shotEl = h("div", { id: "shot" }, this.shotImg, this.shotWords, h("div", { class: "scan" }, h("i")), h("div", { class: "flash" }));
     this.buildViewer();
     this.botCanvas = h("canvas", { id: "bot-canvas" });
     this.greetingCanvas = h("canvas", { id: "greeting-canvas" });
@@ -837,6 +860,7 @@ export class Island {
       cancel: () => this.discardDrop(),
       convert: (kind) => this.convertDrop(kind),
       phoneSend: () => void startPhone("send", this.phoneHost),
+      pictureText: () => void this.pictureText(),
       dress: (ctx, R, turn, layer, pitch) => this.engine.drawWorn(ctx, R, turn, layer, pitch),
     });
 
@@ -1068,6 +1092,7 @@ export class Island {
    * permission or question always comes first, then a phone session's card.
    */
   private openingView(): IslandViewName {
+    if (State.ringing && !State.pendingApproval) return "timerDone";
     if (State.phone && !State.pendingApproval) return "phone";
     return this.updateHintOn() ? "update" : State.defaultView();
   }
@@ -1841,6 +1866,8 @@ export class Island {
   clickedOutside() {
     if (State.mode !== "expanded") return;
     if (State.view === "phone" && phoneLive()) return;
+    // A ringing alarm's card stays until it is answered.
+    if (State.view === "timerDone" && State.ringing) return;
     if (State.phone && !phoneLive()) this.phoneClose();
     this.collapse();
   }
@@ -2154,42 +2181,120 @@ export class Island {
     window.setTimeout(() => this.collapse(), 320);
   }
 
-  /** A timer ended: the card says what is ready, he holds it up ringing. Once more later if left. */
+  /** A timer ended: the alarm rings it, unless another rings (this one comes once that is answered). */
   private ringTimer(timer: Timer) {
-    if (State.timerRing?.id === timer.id && State.view === "timerDone" && State.mode === "expanded") return;
-    // In a game nothing opens: it rings once the game is left.
-    if (State.inGame) {
-      window.setTimeout(() => this.timers.sync(), 5000);
-      return;
-    }
-    State.timerRing = timer;
+    if (State.ringing) return;
+    State.ringing = { timer };
     this.engine.setTimer(timer.kind, 1);
-    this.engine.ringTimer();
-    Sound.play("finish");
-    window.setTimeout(() => Sound.play("finish"), 700);
-    this.alert("timerDone");
-    if (this.ringAgain != null) window.clearTimeout(this.ringAgain);
-    this.ringAgain = window.setTimeout(() => {
-      this.ringAgain = null;
-      if (State.timerRing?.id !== timer.id) return;
-      this.engine.ringTimer();
-      Sound.play("finish");
-      this.alert("timerDone");
-    }, RING_AGAIN_MS);
+    this.bell.start(timer.id);
   }
 
-  /** OK on the ringing card, or five minutes more. */
-  private answerTimer(more: boolean) {
-    const timer = State.timerRing;
-    State.timerRing = null;
-    if (this.ringAgain != null) window.clearTimeout(this.ringAgain);
-    this.ringAgain = null;
-    if (timer) {
-      if (more) Timers.extend(timer.id, 300);
-      else Timers.remove(timer.id);
+  /**
+   * One ring of the alarm (island/alarm.ts): the bell, what Puhu holds shaking, and the
+   * card, held open until it is answered. In a game only the bell: the card comes when
+   * the game is left. Open on something else, the island is left where it is.
+   */
+  private ringAlarm(first: boolean) {
+    if (!State.ringing) return;
+    Sound.play("finish", true);
+    if (first) window.setTimeout(() => Sound.play("finish", true), 700);
+    this.engine.ringTimer();
+    this.ensureRunning();
+    if (State.inGame) return;
+    if (State.mode === "expanded" && State.view === "timerDone") {
+      replay(this.root.querySelector<HTMLElement>(".alarm-card") ?? this.root, "ring");
+    } else if (first || State.mode !== "expanded") {
+      this.alert("timerDone");
     }
-    this.timers.sync();
+    if (State.view === "timerDone") this.setHoldOpen(true);
+  }
+
+  /**
+   * OK on the ringing card, or a few minutes more: a timer goes, or gets five more; a
+   * Today thing is ticked, or rings again in ten. Then whatever else is due rings.
+   */
+  private answerAlarm(more: boolean) {
+    const ringing = State.ringing;
+    State.ringing = null;
+    this.bell.stop();
+    if (ringing?.timer) {
+      if (more) Timers.extend(ringing.timer.id, 300);
+      else Timers.remove(ringing.timer.id);
+    }
+    if (ringing?.task) {
+      if (more) {
+        Today.mark(ringing.task.id, { again: Date.now() + 600_000 });
+      } else {
+        Today.setDone(ringing.task.id, true);
+        this.engine.triggerEmote("happy");
+        Sound.play("approve");
+      }
+    }
     this.collapse();
+    this.timers.sync();
+    this.syncReminders();
+  }
+
+  /**
+   * Today's times (core/today.ts nextReminder): one timer to the next thing to say, a word
+   * before a thing's time, its alarm at it, or what went by while Puhu was not running.
+   * Set again whenever the list or the setting changes, and when the computer wakes.
+   */
+  syncReminders() {
+    if (this.remindTimer != null) window.clearTimeout(this.remindTimer);
+    this.remindTimer = null;
+    const next = nextReminder(Today.all(), Date.now(), State.settings.todayRemind);
+    if (!next) return;
+    this.remindTimer = window.setTimeout(() => {
+      this.remindTimer = null;
+      this.remind();
+    }, Math.min(Math.max(0, next.at - Date.now()), 2 ** 31 - 1));
+  }
+
+  private remind() {
+    const lead = State.settings.todayRemind;
+    const next = nextReminder(Today.all(), Date.now(), lead);
+    if (!next || next.at > Date.now() + 500) return this.syncReminders();
+    const { task, kind } = next;
+    const due = dueAt(task) ?? Date.now();
+    if (kind === "due") {
+      // One alarm at a time: this one rings once the other is answered.
+      if (State.ringing) return;
+      Today.mark(task.id, { rang: due, again: undefined });
+      State.ringing = { task };
+      this.engine.setTimer("bell", 1);
+      this.bell.start(task.id);
+      return;
+    }
+    if (kind === "soon") {
+      // Not over the open island: said once it closes.
+      if (State.mode === "expanded" && !State.inGame) {
+        this.remindTimer = window.setTimeout(() => this.syncReminders(), 15_000);
+        return;
+      }
+      Today.mark(task.id, { told: due });
+      if (State.inGame) return;
+      const minutes = Math.max(1, Math.round((due - Date.now()) / 60_000));
+      this.engine.ringTimer(900);
+      this.showInfo(svg(BELL_ICON, 16, { stroke: 1.8 }), t("In {n} min: {text}", { n: minutes, text: task.text }), BELL_COLOR, REMIND_SECONDS);
+      this.infoAction = () => this.alert("today");
+      Sound.play("peek");
+      return;
+    }
+    // Missed while Puhu was not running: all of them, in one word.
+    const missed: string[] = [];
+    for (let r: Reminder | null = next; r && r.kind === "missed"; r = nextReminder(Today.all(), Date.now(), lead)) {
+      Today.mark(r.task.id, { rang: dueAt(r.task) ?? undefined });
+      missed.push(t("Missed: {text} ({time})", { text: r.task.text, time: r.task.time ?? "" }));
+    }
+    const line = missed.length > 1 ? `${missed[0]} · +${missed.length - 1}` : missed[0];
+    this.showInfo(svg(BELL_ICON, 16, { stroke: 1.8 }), line, BELL_COLOR, REMIND_SECONDS);
+    this.infoAction = () => this.alert("today");
+  }
+
+  /** Someone is back at the computer after an alarm went quiet (away.rs `back`). */
+  alarmBack() {
+    this.bell.back();
   }
 
   /**
@@ -3096,6 +3201,12 @@ export class Island {
     Sound.quiet = false;
     this.updateClosed();
     State.notify();
+    // An alarm rang during the game: its card comes now.
+    if (State.ringing) {
+      this.alert("timerDone");
+      this.setHoldOpen(true);
+      return;
+    }
     // Called in (Ask the screen): the chat opens instead of the welcome back.
     if (quiet) return;
     const { done, terminal } = State.gameNews;
@@ -3372,11 +3483,18 @@ export class Island {
    * an image copied anywhere): the island opens around a small copy of it for a few
    * seconds; a click on it opens the image.
    */
-  showShot(s: { thumb: string; width: number; height: number; name: string }) {
+  showShot(s: Shot) {
     if (State.paused || State.mode === "expanded" || !(s.width > 0 && s.height > 0)) return;
     this.surprise("paparazzi");
     // Paparazzi: the camera's flash goes off over the picture as it lands.
     replay(this.shotEl, "flash");
+    this.setShot(s);
+    Sound.play("pop");
+    this.showHud("shot", SHOT_SECONDS);
+  }
+
+  /** The picture the peek and the viewer show, and the viewer's size for it. */
+  private setShot(s: Shot) {
     const scale = Math.min(SHOT_W / s.width, SHOT_H / s.height);
     this.shotSize = { w: Math.max(40, Math.round(s.width * scale)), h: Math.max(24, Math.round(s.height * scale)) };
     this.shotImg.style.width = `${this.shotSize.w}px`;
@@ -3386,6 +3504,9 @@ export class Island {
     this.shotName = s.name;
     this.shotPx = { w: s.width, h: s.height };
     this.shotSaved = false;
+    this.shotRead = null;
+    this.shotWords.replaceChildren();
+    this.shotWords.classList.remove("read");
     // The viewer, should it be opened: the picture as large as it fits, never past its own size.
     const fit = Math.min(VIEW_IMG_W / s.width, VIEW_IMG_H / s.height, 1);
     const iw = Math.max(40, Math.round(s.width * fit));
@@ -3393,8 +3514,27 @@ export class Island {
     const vw = Math.max(VIEW_MIN_W, iw + 2 * VIEW_PAD + VIEW_GAP + VIEW_SIDE);
     const vh = Math.max(VIEW_MIN_H, ih + 2 * VIEW_PAD);
     this.viewSize = { w: vw, h: vh, img: { left: VIEW_PAD + (vw - 2 * VIEW_PAD - VIEW_GAP - VIEW_SIDE - iw) / 2, top: (vh - ih) / 2, w: iw, h: ih } };
-    Sound.play("pop");
-    this.showHud("shot", SHOT_SECONDS);
+  }
+
+  /**
+   * Copy text on a dropped picture (the choose card): Rust keeps it as it keeps a copied
+   * one, and it opens in the screenshot viewer, read at once.
+   */
+  private async pictureText() {
+    const path = State.droppedPaths[0];
+    if (!path) return;
+    let shot: Shot;
+    try {
+      shot = await Bridge.keepDroppedPicture(path);
+    } catch (err) {
+      State.noteMessage = String(err).replace(/^Error:\s*/, "") || t("Couldn't copy");
+      this.alert("note");
+      return;
+    }
+    this.setShot(shot);
+    this.openViewer();
+    // Once the picture has grown into its place.
+    window.setTimeout(() => void this.readShot(), 560);
   }
 
   /** The screenshot viewer is open. */
@@ -3412,8 +3552,168 @@ export class Island {
       svg(ICONS.arrowUpRight, 13) as unknown as HTMLElement,
       h("span", { text: tl("Open") }),
     );
-    this.viewSide = h("div", { id: "shot-side" }, this.viewMeta, this.viewSave, open);
+    this.viewText = h("button", { class: "btn primary", onclick: () => void this.readShot() }) as HTMLButtonElement;
+    this.viewSide = h("div", { id: "shot-side" }, this.viewMeta, this.viewText, this.viewSave, open);
     this.shotImg.addEventListener("click", () => this.openShot());
+    // Read, the picture takes the pointer: a drag picks words, a click still opens it.
+    this.shotWords.addEventListener("pointerdown", (e) => this.pickWords(e));
+  }
+
+  private syncText(state: "ready" | "reading" | "copied") {
+    this.viewText.disabled = state === "reading";
+    this.viewText.replaceChildren(
+      svg(state === "copied" ? ICONS.check : TEXT_ICON, 13, state === "copied" ? undefined : { stroke: 1.8 }) as unknown as HTMLElement,
+      h("span", { text: state === "reading" ? tl("Reading…") : state === "copied" ? tl("Copied") : tl("Copy text") }),
+    );
+  }
+
+  /**
+   * Copy text: Windows reads the picture on this computer (ocr.rs). Puhu puts his reading
+   * glasses on, a light crosses the picture and every word found lights up as it passes;
+   * then the text is on the clipboard, line by line. Read once a picture: a second click
+   * copies it again.
+   */
+  private async readShot() {
+    if (!this.viewing || this.reading) return;
+    const name = this.shotName;
+    if (this.shotRead?.name === name) {
+      this.pickRange(-1, -1);
+      await this.copyText(this.shotRead.lines.map((l) => l.text).join("\n"), t("Text copied"));
+      return;
+    }
+    this.reading = true;
+    this.syncText("reading");
+    replay(this.shotEl, "scanning");
+    const started = performance.now();
+    let lines: OcrLine[] = [];
+    let error = "";
+    try {
+      lines = await Bridge.screenshotText(name);
+    } catch (err) {
+      error = String(err).replace(/^Error:\s*/, "");
+    }
+    // The light finishes its crossing, whatever Windows' speed.
+    await new Promise((r) => window.setTimeout(r, Math.max(0, SCAN_MS * 0.4 - (performance.now() - started))));
+    this.reading = false;
+    if (name !== this.shotName || !this.viewing) return;
+    if (error) {
+      this.syncText("ready");
+      this.viewMeta.textContent = error === "no-language"
+        ? t("Windows reads no text in your languages yet")
+        : error === "gone" ? t("The picture is gone") : error;
+      this.engine.triggerEmote("surprised");
+      return;
+    }
+    this.shotRead = { name, lines };
+    this.lightWords(lines, performance.now() - started);
+    this.shotWords.classList.toggle("read", lines.length > 0);
+    if (lines.length === 0) {
+      this.syncText("ready");
+      this.viewMeta.textContent = t("No text here");
+      this.engine.triggerEmote("surprised");
+      return;
+    }
+    await this.copyText(lines.map((l) => l.text).join("\n"), t("Text copied"));
+  }
+
+  /** Each word found, lit over the picture as the light passes it (a box the size of the word). */
+  private lightWords(lines: readonly OcrLine[], elapsed: number) {
+    const passed = Math.max(0, SCAN_MS * 0.7 - elapsed);
+    this.shotWords.replaceChildren(
+      ...lines.flatMap((line, li) =>
+        line.words.map((w) => {
+          const span = h("span", { text: w.text });
+          span.dataset.line = String(li);
+          span.style.cssText = `left:${w.x * 100}%;top:${w.y * 100}%;width:${w.w * 100}%;height:${w.h * 100}%;` +
+            `font-size:${(w.h * this.viewSize.img.h * 0.85).toFixed(1)}px;` +
+            `--d:${Math.round(Math.max(0, w.x * SCAN_MS - (SCAN_MS * 0.7 - passed)))}ms`;
+          return span;
+        }),
+      ),
+    );
+  }
+
+  /**
+   * Words picked on the read picture the way text is picked anywhere: pressed on one and
+   * dragged to another, every word between them in reading order lights blue, and let
+   * go, just those are copied, in their lines. A press that does not move opens the
+   * picture, as before it was read. The picture itself never drags away like a file.
+   */
+  private pickWords(e: PointerEvent) {
+    if (!this.shotRead || e.button !== 0) return;
+    e.preventDefault();
+    const from = this.wordAt(e.clientX, e.clientY);
+    const start = { x: e.clientX, y: e.clientY };
+    let moved = false;
+    const el = this.shotWords;
+    try {
+      el.setPointerCapture(e.pointerId);
+    } catch {
+      // A pointer no longer down: the drag ends where it is.
+    }
+    const move = (m: PointerEvent) => {
+      if (!moved && Math.hypot(m.clientX - start.x, m.clientY - start.y) < 4) return;
+      moved = true;
+      this.pickRange(from, this.wordAt(m.clientX, m.clientY));
+    };
+    const up = () => {
+      el.removeEventListener("pointermove", move);
+      el.removeEventListener("pointerup", up);
+      el.removeEventListener("pointercancel", up);
+      if (moved) void this.copyPicked();
+      else this.openShot();
+    };
+    el.addEventListener("pointermove", move);
+    el.addEventListener("pointerup", up);
+    el.addEventListener("pointercancel", up);
+  }
+
+  /** The word nearest a point, as its place in reading order: one on the same line first. */
+  private wordAt(x: number, y: number): number {
+    let best = -1;
+    let bestD = Infinity;
+    [...this.shotWords.children].forEach((span, i) => {
+      const r = span.getBoundingClientRect();
+      const d = Math.max(r.top - y, 0, y - r.bottom) * 4 + Math.max(r.left - x, 0, x - r.right);
+      if (d < bestD) {
+        bestD = d;
+        best = i;
+      }
+    });
+    return best;
+  }
+
+  private pickRange(a: number, b: number) {
+    const [lo, hi] = a <= b ? [a, b] : [b, a];
+    [...this.shotWords.children].forEach((span, i) => span.classList.toggle("picked", i >= lo && i <= hi && lo >= 0));
+  }
+
+  /** The picked words, as their lines read them: spaced as their language spaces words. */
+  private async copyPicked() {
+    const read = this.shotRead;
+    if (!read) return;
+    const spans = [...this.shotWords.children];
+    let i = 0;
+    const picked = read.lines
+      .map((line) => {
+        const words = line.words.filter(() => spans[i++]?.classList.contains("picked")).map((w) => w.text);
+        return words.join(line.text.includes(" ") ? " " : "");
+      })
+      .filter(Boolean);
+    if (picked.length > 0) await this.copyText(picked.join("\n"), t("Copied"));
+  }
+
+  private async copyText(text: string, said: string) {
+    if (!(await Bridge.copyText(text))) {
+      this.syncText("ready");
+      this.viewMeta.textContent = t("Couldn't copy");
+      return;
+    }
+    this.syncText("copied");
+    this.viewMeta.textContent = said;
+    this.engine.triggerEmote("happy");
+    Sound.play("pop");
+    this.ensureRunning();
   }
 
   /** Puhu in the viewer: at the top of its column, beside the picture. */
@@ -3436,6 +3736,7 @@ export class Island {
     this.endHud();
     this.viewMeta.textContent = `${this.shotPx.w} × ${this.shotPx.h}`;
     this.syncSave();
+    this.syncText("ready");
     this.fsm.forceHome();
     this.expand("shot");
     // Hidden behind the peek until now, Puhu appears in his place rather than crossing the picture.
@@ -3463,8 +3764,7 @@ export class Island {
       svg(this.shotSaved ? ICONS.check : SAVE_ICON, 13) as unknown as HTMLElement,
       h("span", { text: this.shotSaved ? tl("Show in folder") : tl("Save") }),
     );
-    this.viewSave.classList.toggle("primary", !this.shotSaved);
-    this.viewSave.classList.toggle("secondary", this.shotSaved);
+    this.viewSave.classList.add("secondary");
   }
 
   /** Save: a PNG beside Windows' own screenshots; once saved, the button shows its folder. */
@@ -3564,7 +3864,7 @@ export class Island {
     this.islandEl.classList.toggle("pomo", (running || timer != null) && State.mode === "compact");
     this.pomodoroEl.classList.toggle("paused", running && Pomodoro.paused);
     // What he holds: the timer's thing, as far along as it is (not while it rings on the card).
-    if (!State.timerRing) this.engine.setTimer(timer?.kind ?? null, timer ? progressOf(timer, Date.now()) : 0);
+    if (!State.ringing) this.engine.setTimer(timer?.kind ?? null, timer ? progressOf(timer, Date.now()) : 0);
     if (State.mode !== "hidden" && timer) this.ensureRunning();
     if (!running && timer) {
       // No Pomodoro: the slot shows the timer, its ring and what is left, without the flame.
@@ -3730,7 +4030,8 @@ export class Island {
     const trying = State.mode === "expanded" && State.view === "focusIntro" && FocusIntro.step === "goal" ? FocusIntro.goal : 0;
     const band = Pomodoro.phase ? hexToRGB(POMODORO_COLOR[Pomodoro.phase]) : trying >= 6 ? hexToRGB(POMODORO_COLOR.focus) : null;
     const phones = this.musicOn || this.gameTimer != null || performance.now() < this.phonesUntil;
-    this.engine.setAccessories(phones, band, agentBusy || trying >= 4);
+    // Reading glasses for Copy text too, while Windows reads the picture.
+    this.engine.setAccessories(phones, band, agentBusy || trying >= 4 || this.reading);
     // ...and for the weather: an umbrella, a scarf, sunglasses, the moon beside him.
     this.engine.setWeather(dress(this.weather, Date.now()));
     // ...and for what the user is busy with: a mug, a beret, a pencil.
@@ -3924,6 +4225,7 @@ export class Island {
     this.scheduleClosedLife();
     Sound.setEnabled(State.settings.soundEnabled);
     Sound.setVolume(State.settings.soundVolume);
+    this.syncReminders();
     this.fsm.homeToPetitDelay = State.settings.autoCloseInterval;
     this.fsm.petitToHiddenDelay = State.settings.compactCloseInterval;
     this.fsm.openOnHover = State.settings.openOnHover;

@@ -48,12 +48,16 @@ export interface ViewActions {
   cancelDrop(): void;
   /** The dropped files made into a PDF, a smaller picture or a JPG (island/convert.ts). */
   convert(kind: ConvertKind): void;
+  /** Copy text on the dropped picture: it opens in the screenshot viewer, read. */
+  pictureText(): void;
   /** The line (views/quick.ts): a timer started, one cancelled, a thing for today's list. */
   timer(spec: TimerSpec): void;
   timerCancel(id: string): void;
   addToday(text: string): void;
   /** The ringing timer's card: OK, or five minutes more. */
   timerAnswer(more: boolean): void;
+  /** A sum's result copied from the quick line: Puhu is pleased. */
+  sumCopied(): void;
   /** A USB drive was ejected from its card: Puhu waves it off. */
   usbEjected(): void;
   /** Send to phone's card (views/phone.ts): Cancel or Done, "it's mine", Downloads. */

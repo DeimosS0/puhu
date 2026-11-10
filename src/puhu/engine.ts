@@ -219,6 +219,8 @@ const SAUCER = "#e6ebf2";
 const EGG = "#fbefd9";
 const EGG_CUP = "#7fb7e8";
 const SAND = "#f2c66d";
+const BELL = "#f5c04a";
+const BELL_LIP = "#c98f2a";
 const WOOD = "#b07a4f";
 /** How much of his face's turn up or down his scarf follows (it is lower on his round body). */
 const SCARF_FOLLOWS = 0.35;
@@ -1950,6 +1952,35 @@ export class BotEngine {
       x.fill();
       x.fillRect(-R * 0.07, R * 0.12, R * 0.14, R * 0.05);
       x.fillRect(-R * 0.11, R * 0.16, R * 0.22, R * 0.035);
+    } else if (this.timerKind === "bell") {
+      // A little brass bell; ringing, its clapper swings out against the shake.
+      const h = R * 0.42;
+      const w = R * 0.4;
+      x.fillStyle = BELL_LIP;
+      x.beginPath();
+      x.arc(-shake * w * 1.1, h * 0.44, h * 0.08, 0, Math.PI * 2);
+      x.fill();
+      x.fillStyle = BELL;
+      x.beginPath();
+      x.arc(0, -h * 0.54, h * 0.08, 0, Math.PI * 2);
+      x.fill();
+      x.beginPath();
+      x.moveTo(-w * 0.12, -h / 2);
+      x.bezierCurveTo(-w * 0.42, -h / 2, -w * 0.36, h * 0.1, -w / 2, h * 0.3);
+      x.lineTo(w / 2, h * 0.3);
+      x.bezierCurveTo(w * 0.36, h * 0.1, w * 0.42, -h / 2, w * 0.12, -h / 2);
+      x.closePath();
+      x.fill();
+      x.fillStyle = BELL_LIP;
+      x.beginPath();
+      x.roundRect(-w * 0.56, h * 0.26, w * 1.12, h * 0.12, h * 0.06);
+      x.fill();
+      x.strokeStyle = "rgba(255, 255, 255, 0.5)";
+      x.lineWidth = R * 0.022;
+      x.beginPath();
+      x.moveTo(-w * 0.18, -h * 0.32);
+      x.quadraticCurveTo(-w * 0.28, -h * 0.05, -w * 0.32, h * 0.14);
+      x.stroke();
     } else {
       // The top bulb empties into the bottom one.
       const h = R * 0.46;

@@ -3565,7 +3565,7 @@ dependencies = [
 
 [[package]]
 name = "puhu"
-version = "0.6.3"
+version = "0.6.4"
 dependencies = [
  "arboard",
  "cpal",
@@ -3597,7 +3597,7 @@ dependencies = [
 
 [[package]]
 name = "puhu-hook"
-version = "0.6.3"
+version = "0.6.4"
 dependencies = [
  "libc",
  "serde_json",

@@ -4,7 +4,8 @@
 // Pure but for the store at the end (localStorage, so a timer outlives a reload or a
 // restart: it is kept as the moment it ends).
 
-export type TimerKind = "tea" | "coffee" | "egg" | "hourglass";
+/** What Puhu holds while it runs; "bell" only rings (a Today thing at its time). */
+export type TimerKind = "tea" | "coffee" | "egg" | "hourglass" | "bell";
 
 export interface TimerSpec {
   /** What it is for, as written ("çay"); empty when nothing but the length was. */

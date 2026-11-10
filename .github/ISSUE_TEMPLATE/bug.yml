@@ -1,0 +1,46 @@
+name: Something is wrong
+description: Puhu did something he shouldn't, or didn't do something he should.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A security problem? Please don't file it here: report it privately (see SECURITY.md).
+  - type: input
+    id: version
+    attributes:
+      label: Puhu version
+      description: At the bottom of the side bar in Puhu's window, or in the installer's name.
+      placeholder: "0.6.3"
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows
+      description: 10 or 11, and the build if you know it (Win+R → winver).
+      placeholder: "Windows 11 24H2"
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you saw, and what you expected instead. A screenshot or a short recording helps.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How to make it happen again
+      placeholder: |
+        1. Open the island
+        2. ...
+  - type: textarea
+    id: log
+    attributes:
+      label: Lines from the log
+      description: >-
+        From %LOCALAPPDATA%\Puhu\puhu.log, around the time it happened. Read them first and take
+        out anything you'd rather not share (names of your projects or files).
+      render: text

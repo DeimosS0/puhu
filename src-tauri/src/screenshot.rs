@@ -22,6 +22,55 @@ const EXPIRE: std::time::Duration = std::time::Duration::from_secs(15 * 60);
 const VIEW_W: usize = 980;
 const VIEW_H: usize = 552;
 
+/// A kept picture, for the island: its peek and its viewer.
+#[derive(serde::Serialize, Clone)]
+pub struct Shot {
+    /// A small copy, as a data URL.
+    thumb: String,
+    width: usize,
+    height: usize,
+    /// The kept file's name, for `open_screenshot`.
+    name: String,
+}
+
+/// Keeps a picture (top-down RGB) as `name` for the island to open, gone after EXPIRE and
+/// when newer ones push it out; its peek's small copy goes with it.
+fn keep(rgb: &[u8], w: usize, h: usize, name: String) -> Option<Shot> {
+    let (small, tw, th) = shrink(rgb, w, h, 520, 292);
+    let thumb = format!("data:image/bmp;base64,{}", base64(&bmp(&small, tw, th)));
+    let dir = folder();
+    let _ = std::fs::create_dir_all(&dir);
+    let path = dir.join(&name);
+    std::fs::write(&path, bmp(rgb, w, h)).ok()?;
+    // Gone after a while even if no other picture comes to push it out.
+    let _ = std::thread::Builder::new().name("puhu-shot-expiry".into()).stack_size(64 * 1024).spawn(move || {
+        std::thread::sleep(EXPIRE);
+        let _ = std::fs::remove_file(path);
+    });
+    if let Ok(entries) = std::fs::read_dir(&dir) {
+        let mut files: Vec<_> = entries.flatten().filter_map(|e| Some((e.metadata().ok()?.modified().ok()?, e.path()))).collect();
+        files.sort_by(|a, b| b.0.cmp(&a.0));
+        for (_, old) in files.into_iter().skip(KEEP) {
+            let _ = std::fs::remove_file(old);
+        }
+    }
+    Some(Shot { thumb, width: w, height: h, name })
+}
+
+/// A picture dropped on the island, for Copy text: kept like a copied one, in the viewer.
+#[tauri::command]
+pub async fn keep_dropped_picture(path: String) -> Result<Shot, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let source = crate::convert::granted(&path)?;
+        let (rgb, w, h) = crate::convert::picture_rgb(&source, 4096)?;
+        static DROPS: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+        let n = DROPS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        keep(&rgb, w, h, format!("drop-{n}.bmp")).ok_or_else(String::new)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 /// The image saved last, so "Show in folder" never takes a path from the page.
 static SAVED: Mutex<Option<PathBuf>> = Mutex::new(None);
 
@@ -65,7 +114,7 @@ pub fn open_screenshot(name: String) {
 }
 
 /// One of the kept images (our own BMPs: the file header, then a DIB), top-down RGB.
-fn read_kept(name: &str) -> Option<(Vec<u8>, usize, usize)> {
+pub(crate) fn read_kept(name: &str) -> Option<(Vec<u8>, usize, usize)> {
     let bytes = std::fs::read(kept(name)?).ok()?;
     dib_to_rgb(bytes.get(14..)?)
 }
@@ -259,7 +308,6 @@ fn dib_to_rgb(dib: &[u8]) -> Option<(Vec<u8>, usize, usize)> {
 mod imp {
     use std::sync::OnceLock;
 
-    use serde::Serialize;
     use tauri::{AppHandle, Emitter};
     use windows::core::w;
     use windows::Win32::Foundation::{HGLOBAL, HWND, LPARAM, LRESULT, WPARAM};
@@ -275,16 +323,6 @@ mod imp {
     };
 
     use crate::island::WINDOW_LABEL;
-
-    #[derive(Serialize, Clone)]
-    struct Shot {
-        /// A small copy, as a data URL.
-        thumb: String,
-        width: usize,
-        height: usize,
-        /// The kept file's name, for `open_screenshot`.
-        name: String,
-    }
 
     static APP: OnceLock<AppHandle> = OnceLock::new();
     static mut LAST_SEQUENCE: u32 = 0;
@@ -342,33 +380,12 @@ mod imp {
         }
         unsafe { LAST_IMAGE = print };
         let Some((rgb, w, h)) = super::dib_to_rgb(&dib) else { return };
-        let (small, tw, th) = super::shrink(&rgb, w, h, 520, 292);
-        let thumb = format!("data:image/bmp;base64,{}", super::base64(&super::bmp(&small, tw, th)));
-        // The whole image, kept for opening; only the newest few stay.
-        let dir = super::folder();
-        let _ = std::fs::create_dir_all(&dir);
-        let name = format!("image-{sequence}.bmp");
-        let path = dir.join(&name);
-        if std::fs::write(&path, super::bmp(&rgb, w, h)).is_err() {
-            return;
-        }
-        // Gone after a while even if no other picture comes to push it out.
-        let _ = std::thread::Builder::new().name("puhu-shot-expiry".into()).stack_size(64 * 1024).spawn(move || {
-            std::thread::sleep(super::EXPIRE);
-            let _ = std::fs::remove_file(path);
-        });
-        if let Ok(entries) = std::fs::read_dir(&dir) {
-            let mut files: Vec<_> = entries.flatten().filter_map(|e| Some((e.metadata().ok()?.modified().ok()?, e.path()))).collect();
-            files.sort_by(|a, b| b.0.cmp(&a.0));
-            for (_, old) in files.into_iter().skip(super::KEEP) {
-                let _ = std::fs::remove_file(old);
-            }
-        }
+        let Some(shot) = super::keep(&rgb, w, h, format!("image-{sequence}.bmp")) else { return };
         if crate::platform::presenting() {
             return;
         }
         if let Some(app) = APP.get() {
-            let _ = app.emit_to(WINDOW_LABEL, "screenshot", Shot { thumb, width: w, height: h, name });
+            let _ = app.emit_to(WINDOW_LABEL, "screenshot", shot);
         }
     }
 

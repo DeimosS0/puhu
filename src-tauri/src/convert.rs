@@ -44,7 +44,7 @@ pub fn is_made(path: &Path) -> bool {
     MADE.lock().unwrap().iter().any(|p| p == path)
 }
 
-fn granted(path: &str) -> Result<PathBuf, String> {
+pub(crate) fn granted(path: &str) -> Result<PathBuf, String> {
     if !crate::files::may_convert(path) {
         return Err(crate::i18n::t("Only files dropped on the island can be added."));
     }
@@ -154,6 +154,12 @@ pub async fn convert_image(path: String, to: String) -> Result<Converted, String
         finish(&out, &bytes, before, 0)
     })
     .await
+}
+
+/// A dropped picture as the camera meant it, no larger than `side`, transparency on
+/// white: top-down RGB (Copy text, screenshot.rs keep_dropped_picture).
+pub(crate) fn picture_rgb(path: &Path, side: u32) -> Result<(Vec<u8>, usize, usize), String> {
+    image::rgb(path, side)
 }
 
 /// A dropped document's bytes, for the page to turn into HTML (src/core/docx.ts).
@@ -408,6 +414,20 @@ mod image {
     /// `path` decoded as the camera meant it (turned by its EXIF), no larger than `side` on
     /// its long side (0: as it is), transparency on white, encoded as a JPEG: (bytes, w, h).
     pub fn to_jpeg(path: &Path, side: u32, quality: f32) -> Result<(Vec<u8>, u32, u32), String> {
+        let (rgba, w, h) = on_white(path, side)?;
+        let jpeg = encode(&rgba, w, h, quality).map_err(|e| e.to_string())?;
+        Ok((jpeg, w, h))
+    }
+
+    /// The same picture as top-down RGB.
+    pub fn rgb(path: &Path, side: u32) -> Result<(Vec<u8>, usize, usize), String> {
+        let (rgba, w, h) = on_white(path, side)?;
+        let rgb = rgba.chunks_exact(4).flat_map(|px| [px[0], px[1], px[2]]).collect();
+        Ok((rgb, w as usize, h as usize))
+    }
+
+    /// `path` decoded and turned (to_jpeg), its transparency laid on white: RGBA.
+    fn on_white(path: &Path, side: u32) -> Result<(Vec<u8>, u32, u32), String> {
         com();
         let bytes = std::fs::read(path).map_err(|e| e.to_string())?;
         let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
@@ -422,8 +442,7 @@ mod image {
                 px[3] = 255;
             }
         }
-        let jpeg = encode(&rgba, w, h, quality).map_err(|e| e.to_string())?;
-        Ok((jpeg, w, h))
+        Ok((rgba, w, h))
     }
 
     fn decode(bytes: &[u8], side: u32) -> windows::core::Result<(Vec<u8>, u32, u32)> {
@@ -479,6 +498,10 @@ mod image {
 #[cfg(not(windows))]
 mod image {
     pub fn to_jpeg(_: &std::path::Path, _: u32, _: f32) -> Result<(Vec<u8>, u32, u32), String> {
+        Err("Not on this system yet.".into())
+    }
+
+    pub fn rgb(_: &std::path::Path, _: u32) -> Result<(Vec<u8>, usize, usize), String> {
         Err("Not on this system yet.".into())
     }
 }

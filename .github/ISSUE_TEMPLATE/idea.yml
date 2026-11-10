@@ -1,0 +1,21 @@
+name: An idea
+description: Something Puhu could do, or do better.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Puhu grows slowly on purpose: each new thing should be useful, drawn with care, and cost
+        nothing while nobody is looking. Not every idea makes it, but every one is read.
+  - type: textarea
+    id: idea
+    attributes:
+      label: The idea
+      description: What would Puhu do, and when?
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why it would help you
+      description: What you do today instead, or what you miss.

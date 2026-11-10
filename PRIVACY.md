@@ -37,6 +37,9 @@ is yours; Puhu keeps no copy.
 - **Camera and microphone**: which app uses them, for the dot on the island and a
   moment's note.
 - **Downloads and USB drives**: a file's name as it arrives, a drive's name and room.
+- **Copy text**: only when you click it in the screenshot viewer, Windows' own text
+  recognizer reads the picture on this computer; the words go to your clipboard and
+  nowhere else.
 - **The chat**: your conversation stays in memory while Puhu runs, and is gone when he
   closes.
 

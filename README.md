@@ -10,7 +10,7 @@ He keeps watch over your coding agents, keeps your day, and notices the little t
 
 <a href="https://github.com/DeimosS0/puhu/releases/latest"><img src="https://raw.githubusercontent.com/DeimosS0/puhu/media/button-get.png" height="52" alt="Download for Windows"></a>
 
-<sub>Free · open source · Windows 10 and 11 · an early release, in active development</sub>
+<sub>Free · open source · Windows 10 and 11 · an early release, in active development · [what's new](CHANGELOG.md)</sub>
 
 </div>
 
@@ -94,19 +94,56 @@ rounds and follows the seasons, your numbers and leagues, a calendar of your day
 the feather shop (a shield, new colours for Puhu) and every badge. The secret ones
 stay hidden until found.
 
+**Your week's sky.** Every Monday the week comes as a night sky: each half hour of a
+focus round, an agent at work or (only if you turn it on) your own work in a coding,
+design or writing program is a star, each thing done is one more, and each day's stars
+make a constellation, with a title for how the week went (Night Owl, Early Bird, Focus
+Master…). Share makes a picture of Puhu on a branch under your sky, with no project,
+program or time of day in it. How it counts: [docs/weekly-card.md](docs/weekly-card.md).
+
+**Send to phone.** Drop files on the island and pick Send to phone, or Get from phone in
+the + tab: Puhu holds up a QR code and the phone's camera opens a page in its own
+browser, no app, iPhone or Android. Files go straight over your own Wi-Fi or the phone's
+hotspot, never through the internet, sealed end to end with a key only the QR code
+carries. The design and what it guards against: [docs/send-to-phone.md](docs/send-to-phone.md).
+
+**A hand with the small things.** Pull the compact island down and write "12 min tea":
+it counts down while the tea darkens in Puhu's glass. Drop photos on the island and they
+become one PDF; a Word document or plain text becomes one too, without Word, and a photo
+can be made smaller to send. A USB drive plugged in shows its name and the room left on
+it, and its card ejects it safely. Over the island the wheel turns the volume and a
+sideways swipe skips the song.
+
+**It rings until you answer.** A timer that ends, or a thing on Today's list at its time,
+comes down from the island and rings until you say OK, with a word ten minutes before the
+time. After ten minutes it goes quiet but the card waits, and Puhu rings once more when you
+are back at the computer.
+
+**Copy text from a picture.** Take a screenshot (<kbd>Win</kbd> + <kbd>Shift</kbd> + <kbd>S</kbd>)
+and click it in the island, or drop a picture on it, then Copy text: Windows' own recognizer
+reads it on your computer while every word it finds lights up. Drag over a few words to copy
+just those.
+
+**Sums.** Pull the compact island down and write "1250*1,18" or "450 + %18": the result as
+you type, Enter copies it.
+
 **Your other agents.** Codex, Copilot CLI, Gemini CLI, Cursor, OpenCode and a few more
 get their own pills ([Supported agents](#supported-agents)). The island's header can show
 your Claude and Codex plan limits.
 
 **The rest of the island.** What is playing (Spotify or any app in the Windows media
 controls); your services as coloured pills (Stripe, GitHub, Vercel, n8n, Notion, Resend,
-Cal.com and others, each with your own key); a chat with Claude or another provider,
-and a file dropped on the island goes to it; a weekly recap of your coding sessions.
+Cal.com and others, each with your own key); a chat with Claude or another provider: a
+file dropped on the island goes to it, <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>F</kbd>
+asks it about what is on the screen, and a copied error gets an "Ask Puhu".
 
 **Puhu himself.** Rest the pointer on him for hearts. Right-click for his wardrobe
 (his colours). Drag him out of the island and he lives on your desktop until you drop
-him back. Some of the small things you do earn a secret badge; which ones is for you
-to find.
+him back; let go near the taskbar and he perches on its edge, now and then walking a few
+steps along it. Give him your town (Settings → General → Weather) and he dresses for it:
+an umbrella in the rain, a scarf in the cold, sunglasses in the sun. Over a full-screen
+game he wishes you a good game and steps aside. Some of the small things you do earn a
+secret badge; which ones is for you to find.
 
 ## Install
 
@@ -124,6 +161,8 @@ installs only one he has signed.
   picture for 15 minutes, a dropped file's copy for a day, agent sessions for 4 weeks.
   Settings → General → **What Puhu keeps** lists all of it, each with its Clear.
 - Keys and tokens live in Windows Credential Manager, never in a file.
+- Send to phone goes only between this computer and your phone, over your own network,
+  sealed end to end. Copy text is read by Windows on this computer, only when you click it.
 - Your focus history is a log on this computer (`%APPDATA%\Puhu\progress.log`),
   signed so an edit is noticed. Nothing about it leaves the machine.
 - The whole list, and what goes over the network: [PRIVACY.md](PRIVACY.md). Found a
@@ -199,7 +238,7 @@ src/              the island, Puhu's window and the settings (TypeScript, no fra
   i18n/           strings.json, every string in the 14 languages
 src-tauri/        the Rust side: windows, the hook pipe, providers, pollers, the progress log
 hook/             puhu-hook.exe, the agents' relay
-docs/             gamification.md (how focus play works), game-mode.md
+docs/             gamification.md (how focus play works), game-mode.md, weekly-card.md, send-to-phone.md (its threat model)
 scripts/          icons, sounds, release signing; readme-media.mjs builds the README's `media` branch
 ```
 

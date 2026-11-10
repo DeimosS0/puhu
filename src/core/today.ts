@@ -16,6 +16,11 @@ export interface TodayTask {
   doneAt?: number;
   /** The day Puhu last blew the dust off it (YYYY-MM-DD): once a day is enough. */
   dusted?: string;
+  /** Its time's reminders (nextReminder), each the moment of the time it was for (ms):
+   *  the word before it was said, the alarm rang; `again`: it rings again then (+10 min). */
+  told?: number;
+  rang?: number;
+  again?: number;
 }
 
 /** Stored key: never rename it. */
@@ -112,6 +117,58 @@ export function todayList(tasks: readonly TodayTask[], now: Date): TodayTask[] {
       (rank(a) === 0 ? a.day.localeCompare(b.day) : 0) ||
       (rank(a) === 2 ? (a.time ?? "").localeCompare(b.time ?? "") : 0) ||
       a.created - b.created);
+}
+
+/** A thing's day and time as a moment (ms); null without a time. */
+export function dueAt(task: TodayTask): number | null {
+  if (!task.time) return null;
+  const [y, m, d] = task.day.split("-").map(Number);
+  const [hh, mm] = task.time.split(":").map(Number);
+  return new Date(y, m - 1, d, hh, mm).getTime();
+}
+
+/** A time this far gone still rings; later than that, while Puhu was not running, it was missed. */
+export const RING_LATE_MS = 2 * 60_000;
+
+export interface Reminder {
+  task: TodayTask;
+  /** When to say it (ms). */
+  at: number;
+  /** A word `lead` minutes before, the alarm at its time, or a time gone by unseen today. */
+  kind: "soon" | "due" | "missed";
+}
+
+/**
+ * What Puhu says next about the times on the list: the soonest of a word `lead` minutes
+ * before a thing's time (not for one written closer to it than that), its alarm at the
+ * time (or when it was put off to), and a time of today's that went by more than
+ * RING_LATE_MS ago without ringing ("missed", due at once). Done things and earlier days'
+ * are left alone. `lead` < 0: no reminders.
+ */
+export function nextReminder(tasks: readonly TodayTask[], now: number, lead: number): Reminder | null {
+  if (lead < 0) return null;
+  const today = dayKey(new Date(now));
+  let next: Reminder | null = null;
+  const consider = (r: Reminder) => {
+    if (!next || r.at < next.at) next = r;
+  };
+  for (const task of tasks) {
+    const due = dueAt(task);
+    if (task.doneAt || due == null) continue;
+    if (task.again != null) {
+      consider({ task, at: Math.max(task.again, now), kind: "due" });
+      continue;
+    }
+    if (task.rang === due) continue;
+    if (now > due + RING_LATE_MS) {
+      if (task.day === today) consider({ task, at: now, kind: "missed" });
+      continue;
+    }
+    const soon = due - lead * 60_000;
+    if (lead > 0 && task.told !== due && now < due && task.created < soon) consider({ task, at: Math.max(soon, now), kind: "soon" });
+    consider({ task, at: Math.max(due, now), kind: "due" });
+  }
+  return next;
 }
 
 /** Days a task has waited past its own (0 for today's). */

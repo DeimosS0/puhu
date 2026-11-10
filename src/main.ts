@@ -191,7 +191,11 @@ async function main() {
   await onEvent<null>("display-on", () => {
     island.morning();
     island.evening();
+    // Asleep, the reminders' timer stood still: set it again from the clock.
+    island.syncReminders();
   });
+  // Someone is back after an alarm went quiet (away.rs alarm_wait_back): it rings once more.
+  await onEvent<null>("back", () => island.alarmBack());
   void Bridge.gameStatus().then((g) => {
     if (g?.on) island.setGame(true);
   });

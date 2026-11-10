@@ -293,6 +293,10 @@ export const Bridge = {
   /** The last reading, for a page that (re)loads; its news come as the `weather` event. */
   weatherNow: () => call<Weather | null>("weather_now"),
 
+  // ── Alarms (src-tauri/src/away.rs) ─────────────────────────────────────────
+  /** An alarm went quiet: true when nobody is at the computer, and `back` comes when someone is. */
+  alarmWaitBack: () => call<boolean>("alarm_wait_back"),
+
   // ── Spotify (src-tauri/src/spotify.rs) ────────────────────────────────────
   /** Reads the player again (the card came on screen) and reports it. */
   spotifyRefresh: () => call<SpotifyState | null>("spotify_refresh"),
@@ -321,6 +325,12 @@ export const Bridge = {
   logClear: () => call<void>("log_clear"),
   /** The viewer's larger copy of one, as a data URL. */
   screenshotView: (name: string) => call<string | null>("screenshot_view", { name }),
+  /** Copy text: the lines Windows reads in a kept picture, on this computer (ocr.rs). Throws "no-language" or "gone". */
+  screenshotText: (name: string) => callOrThrow<OcrLine[]>("screenshot_text", { name }),
+  /** A dropped picture kept like a copied one, for Copy text in the viewer (screenshot.rs). */
+  keepDroppedPicture: (path: string) => callOrThrow<Shot>("keep_dropped_picture", { path }),
+  /** Text onto the clipboard from Rust (copied.rs): the page may not have the focus to write it itself. */
+  copyText: (text: string) => call<boolean>("copy_text", { text }),
   /** Saves one as a PNG where Windows keeps its screenshots; true once it is written. */
   saveScreenshot: (name: string, label: string) => call<boolean>("save_screenshot", { name, label }),
   /** Opens the folder of the one saved last. */
@@ -493,6 +503,20 @@ export interface HookPreview {
   settingsPath: string;
   /** Hand back to hooksApply so only the reviewed diff is ever written. */
   fingerprint: string;
+}
+
+/** A kept picture (screenshot.rs): its small copy, its size, and its name for the viewer. */
+export interface Shot {
+  thumb: string;
+  width: number;
+  height: number;
+  name: string;
+}
+
+/** A line Windows read in a picture, and its words, placed as fractions of the picture's size. */
+export interface OcrLine {
+  text: string;
+  words: { text: string; x: number; y: number; w: number; h: number }[];
 }
 
 /** Same as `call`, but surfaces the error so the UI can show what went wrong. */

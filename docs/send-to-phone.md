@@ -1,7 +1,9 @@
 # Send to phone, and from it
 
-Status: proposed 2026-11-09, nothing built. This is the threat model the code has to
-meet; update it before the code.
+Status: built for 0.6.3 (2026-11-10): `src-tauri/src/phone.rs` (the session and its
+listener), the page in `src/phone-page/` (built into `src-tauri/phone/` by
+`npm run phone-page`). This is the threat model the code has to meet; update it before
+the code.
 
 A file goes from the computer to a phone, or from a phone to the computer, through the
 phone's own browser: no app on the phone, no cable, no account, no server of ours,

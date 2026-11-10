@@ -1135,6 +1135,19 @@ function generalSections(): HTMLElement[] {
     void save();
   });
 
+  // Today's list: a word this many minutes before a thing's time and the alarm at it, or neither.
+  const remind = h("select", {}) as HTMLSelectElement;
+  remind.append(
+    ...[10, 5].map((n) => h("option", { value: String(n), text: t("{n} min before", { n }) })),
+    h("option", { value: "0", text: t("At its time") }),
+    h("option", { value: "-1", text: t("Off") }),
+  );
+  remind.value = String(settings.todayRemind);
+  remind.addEventListener("change", () => {
+    settings.todayRemind = Number(remind.value);
+    void save();
+  });
+
   const screen = h("select", {}) as HTMLSelectElement;
   screen.append(
     h("option", { value: "primary", text: t("Main display") }),
@@ -1187,6 +1200,9 @@ function generalSections(): HTMLElement[] {
       setting(t("Hide the island"), null, hideIsland),
       setting(t("Music in the closed island"), t("While music plays, the closed island shows its waves in Puhu's place, and each new song opens the island for a moment on its cover."),
         toggle(settings.closedMusic, (v) => { settings.closedMusic = v; void save(); })),
+    ),
+    group(t("Today"),
+      setting(t("Reminders"), t("When a thing on your list has a time, Puhu rings at that time until you say OK, with a short word before it."), remind),
     ),
     group(t("Weather"),
       setting(t("Your town"), t("Puhu dresses for the weather where you are: an umbrella in the rain, a scarf in the cold, sunglasses in the sun, and he tells you when rain is coming. Only the town you type goes to Open-Meteo, once an hour."),

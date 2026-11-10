@@ -16,6 +16,9 @@ export const SOUND_NAMES = [
 
 export type SoundName = (typeof SOUND_NAMES)[number];
 
+/** An alarm is never softer than this (the default volume is 0.12). */
+const ALARM_FLOOR = 0.08;
+
 class SoundEngine {
   enabled = true;
   /** In a game (game mode): nothing plays, whatever the settings say. */
@@ -119,8 +122,12 @@ class SoundEngine {
     this.enabled = on;
   }
 
-  play(name: SoundName | string) {
-    if (!this.enabled || this.quiet) return;
+  /**
+   * `alarm`: an alarm's ring (island/alarm.ts). The user set it, so it plays though Puhu's
+   * sounds are off or a game is on, and never softer than ALARM_FLOOR.
+   */
+  play(name: SoundName | string, alarm = false) {
+    if (!alarm && (!this.enabled || this.quiet)) return;
     const ctx = this.ctx;
     const master = this.master;
     const buf = this.buffers.get(name);
@@ -134,7 +141,12 @@ class SoundEngine {
     src.buffer = buf;
     const gain = ctx.createGain();
     src.connect(gain);
-    gain.connect(master);
+    if (alarm) {
+      gain.gain.value = Math.max(this.volume, ALARM_FLOOR);
+      gain.connect(ctx.destination);
+    } else {
+      gain.connect(master);
+    }
     const voice = { src, gain };
     let voices = this.playing.get(name);
     if (!voices) this.playing.set(name, (voices = new Set()));

@@ -8,7 +8,9 @@ import { ICONS } from "./icons";
 import { State } from "../core/state";
 import { Timers, formatLeft, parseTimer, type TimerKind, type TimerSpec } from "../core/timer";
 import { parseTask, dayKey } from "../core/today";
-import { N_, t, tl } from "../i18n/i18n";
+import { N_, language, t, tl } from "../i18n/i18n";
+import { Bridge } from "../core/bridge";
+import { decimalOf, formatSum, parseSum } from "../core/calc";
 import type { ViewActions, ViewHost } from "./views";
 
 /** The ready lengths, when no timer runs: an egg, a tea, a pause, a round. */
@@ -18,7 +20,7 @@ const PRESETS: { seconds: number; kind: TimerKind }[] = [
   { seconds: 600, kind: "hourglass" },
   { seconds: 900, kind: "tea" },
 ];
-const KIND_ICON: Record<TimerKind, string> = { tea: "🍵", coffee: "☕", egg: "🥚", hourglass: "⏳" };
+const KIND_ICON: Record<TimerKind, string> = { tea: "🍵", coffee: "☕", egg: "🥚", hourglass: "⏳", bell: "🔔" };
 const DEFAULT_LABEL = N_("Timer");
 
 /** "45 sn", "12 dk", "1 sa 20 dk". */
@@ -49,17 +51,24 @@ export function buildQuick(actions: ViewActions): ViewHost {
 
   let chipsFor: string | null = null;
 
-  /** What Puhu reads in the field: a timer, or a line for today's list. */
-  const read = (): { timer: TimerSpec | null; text: string } => {
+  /** What Puhu reads in the field: a sum, a timer, or a line for today's list. */
+  const read = (): { sum: number | null; timer: TimerSpec | null; text: string } => {
     const text = field.value.trim();
-    return { timer: text ? parseTimer(text) : null, text };
+    const sum = text ? parseSum(text, decimalOf(language())) : null;
+    return { sum, timer: text && sum == null ? parseTimer(text) : null, text };
   };
 
   const showReading = () => {
-    const { timer, text } = read();
+    const { sum, timer, text } = read();
     reading.replaceChildren();
     reading.classList.toggle("on", text !== "");
+    reading.classList.remove("copied");
     if (!text) return;
+    if (sum != null) {
+      // A sum: its result as it is typed, and Enter copies it.
+      reading.append(h("b", { class: "quick-sum", text: `= ${formatSum(sum, language())}` }), document.createTextNode(` · ${t("Enter to copy")}`));
+      return;
+    }
     if (timer) {
       reading.append(svg(ICONS.timer, 13), document.createTextNode(`${timerName(timer.label)} · ${formatDuration(timer.seconds)}`));
       return;
@@ -102,10 +111,20 @@ export function buildQuick(actions: ViewActions): ViewHost {
     );
   };
 
-  /** Enter: the line goes up and away into the island, which does the rest. */
+  /** Enter: a sum's result is copied, the sum staying to go on with; anything else goes up and away into the island. */
   const submit = () => {
-    const { timer, text } = read();
+    const { sum, timer, text } = read();
     if (!text) return;
+    if (sum != null) {
+      void Bridge.copyText(formatSum(sum, language(), false)).then((ok) => {
+        if (!ok) return;
+        reading.replaceChildren(svg(ICONS.check, 13, { stroke: 2.2 }), h("b", { class: "quick-sum", text: formatSum(sum, language()) }), document.createTextNode(` · ${t("Copied")}`));
+        reading.classList.add("copied");
+        field.select();
+        actions.sumCopied();
+      });
+      return;
+    }
     line.animate(
       [{ transform: "translateY(0)", opacity: 1 }, { transform: "translateY(-18px) scale(0.96)", opacity: 0 }],
       { duration: 240, easing: "cubic-bezier(0.4, 0, 1, 1)" },
@@ -150,19 +169,26 @@ export function buildTimerDone(actions: ViewActions): ViewHost {
   const title = h("div", { class: "title" });
   const sub = h("div", { class: "sub" });
   const ok = h("button", { class: "btn primary", text: tl("OK"), onclick: () => actions.timerAnswer(false) });
-  const more = h("button", { class: "btn secondary", text: tl("+{n} min", { n: 5 }), onclick: () => actions.timerAnswer(true) });
+  const more = h("button", { class: "btn secondary", onclick: () => actions.timerAnswer(true) });
   const el = h(
     "div",
     { class: "view" },
-    h("div", { class: "card" }, h("div", { class: "stack", style: "padding:0 18px 0 112px" }, title, sub, h("div", { class: "actions" }, ok, more))),
+    h("div", { class: "card alarm-card" }, h("div", { class: "stack", style: "padding:0 18px 0 112px" }, title, sub, h("div", { class: "actions" }, ok, more))),
   );
   return {
     el,
     sync() {
-      const timer = State.timerRing;
-      if (!timer) return;
-      title.textContent = timer.label ? t("{label} is ready!", { label: timerName(timer.label) }) : t("Time's up!");
-      sub.textContent = t("{duration} have passed", { duration: formatDuration(timer.seconds) });
+      const { timer, task } = State.ringing ?? {};
+      if (task) {
+        // A Today thing at its time: OK ticks it, or it rings again in ten minutes.
+        title.textContent = task.text;
+        sub.textContent = t("It's {time}", { time: task.time ?? "" });
+        more.textContent = t("+{n} min", { n: 10 });
+      } else if (timer) {
+        title.textContent = timer.label ? t("{label} is ready!", { label: timerName(timer.label) }) : t("Time's up!");
+        sub.textContent = t("{duration} have passed", { duration: formatDuration(timer.seconds) });
+        more.textContent = t("+{n} min", { n: 5 });
+      }
     },
   };
 }

@@ -9,9 +9,9 @@
 import { State } from "../core/state";
 import { PUHU_EYE_P, PUHU_EYE_SCALE, PUHU_EYE_SP, PUHU_RX, PUHU_RY, puhuCss, puhuPoint } from "../puhu/puhu";
 import { SCRIPT_FONTS } from "../core/fonts";
-import { N_, isRtl, t, tl } from "../i18n/i18n";
+import { N_, isRtl, language, t, tl } from "../i18n/i18n";
 import { USC, lerp, progressAt, type UploadEyeShape, type UploadFile, type UploadFrame } from "./sequence";
-import { offers, type ConvertKind } from "../island/convert";
+import { offers, onePicture, type ConvertKind } from "../island/convert";
 import { h, svg } from "../views/dom";
 import { ICONS } from "../views/icons";
 import { PHONE_ICON } from "../views/phone";
@@ -22,6 +22,8 @@ const FONT = `system-ui, "Segoe UI Variable Text", "Segoe UI", ${SCRIPT_FONTS}, 
 const TEXT_RIGHT = USC.CARD_X + USC.CARD_W - 16;
 /** Where the choose card's row of buttons starts. */
 const BUTTONS = { x: 114, y: 113 };
+/** The row's room before the card's right edge: wider, Ask keeps only its bubble. */
+const ROW_MAX = USC.CARD_X + USC.CARD_W - BUTTONS.x - 18;
 /** What the dropped files can be made into, as the buttons say it. */
 const MAKE: Record<ConvertKind, string> = {
   pdf: N_("Make a PDF"),
@@ -114,6 +116,8 @@ export interface UploadCanvasActions {
   convert(kind: ConvertKind): void;
   /** The dropped files sent to a phone (island/phone.ts). */
   phoneSend(): void;
+  /** Copy text on the one picture dropped: it opens in the screenshot viewer, read. */
+  pictureText(): void;
   /** What the island's Puhu wears, drawn on this one at his middle (BotEngine.drawWorn). */
   dress(ctx: CanvasRenderingContext2D, R: number, turn: number, layer: "behind" | "front", pitch: number): void;
 }
@@ -139,7 +143,12 @@ export class UploadCanvas {
     this.canvas = document.createElement("canvas");
     this.canvas.id = "upload-canvas";
 
-    this.ask = h("button", { class: "btn primary upload-btn", text: tl("Ask a question about it"), onclick: () => actions.ask() });
+    this.ask = h(
+      "button",
+      { class: "btn primary upload-btn upload-ask", title: tl("Ask a question about it"), onclick: () => actions.ask() },
+      svg(ICONS.bubbleRound, 14),
+      h("span", { text: tl("Ask a question about it") }),
+    ) as HTMLButtonElement;
     this.cancel = h("button", { class: "btn secondary upload-btn", text: tl("Cancel"), onclick: () => actions.cancel() });
     // With something to make, Cancel steps aside to the card's corner and leaves the row to it.
     this.close = h("button", { class: "card-x upload-x", title: tl("Cancel"), onclick: () => actions.cancel() }, svg(ICONS.xmark, 10));
@@ -190,15 +199,21 @@ export class UploadCanvas {
   private syncButtons() {
     const paths = State.droppedPaths;
     const kinds = offers(paths);
-    const key = `${kinds.join()}|${paths.length}`;
+    const picture = onePicture(paths);
+    const key = `${kinds.join()}|${paths.length}|${picture}|${language()}`;
     if (key === this.buttonsFor) return;
     this.buttonsFor = key;
     const makes = kinds.map((kind, i) =>
       h("button", { class: `btn ${i === 0 ? "primary" : "secondary"} upload-btn`, text: tl(MAKE[kind]), onclick: () => this.actions.convert(kind) }),
     );
-    this.ask.className = `btn ${makes.length ? "secondary" : "primary"} upload-btn`;
+    if (picture) makes.push(h("button", { class: "btn secondary upload-btn", text: tl("Copy text"), onclick: () => this.actions.pictureText() }));
+    this.ask.classList.toggle("primary", makes.length === 0);
+    this.ask.classList.toggle("secondary", makes.length > 0);
     this.row.replaceChildren(...makes, this.ask, ...(makes.length ? [] : [this.cancel]));
     this.close.hidden = makes.length === 0;
+    // Where a language's words leave the row no room, Ask keeps only its bubble.
+    this.row.classList.remove("tight");
+    this.row.classList.toggle("tight", this.row.offsetWidth > ROW_MAX);
   }
 
   // ── Scene ─────────────────────────────────────────────────────────────────

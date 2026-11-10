@@ -33,6 +33,11 @@ export function offers(paths: readonly string[]): ConvertKind[] {
   return paths.length === 1 && (DOCX.test(paths[0]) || TEXT.test(paths[0])) ? ["pdf"] : [];
 }
 
+/** One picture dropped: Copy text is offered beside what it can be made into. */
+export function onePicture(paths: readonly string[]): boolean {
+  return paths.length === 1 && PICTURE.test(paths[0]);
+}
+
 let runs = 0;
 
 /** A new drop: whatever was being made is forgotten (its result still lands on disk). */

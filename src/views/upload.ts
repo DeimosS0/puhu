@@ -8,9 +8,9 @@ import { h, clear, svg } from "./dom";
 import { ICONS } from "./icons";
 import { PHONE_ICON } from "./phone";
 import { State } from "../core/state";
-import { offers, type ConvertKind } from "../island/convert";
+import { offers, onePicture, type ConvertKind } from "../island/convert";
 import type { ViewActions, ViewHost } from "./views";
-import { N_, t, tl } from "../i18n/i18n";
+import { N_, language, t, tl } from "../i18n/i18n";
 
 const MAKE: Record<ConvertKind, string> = {
   pdf: N_("Make a PDF"),
@@ -100,11 +100,17 @@ export function buildUploading(): ViewHost {
 export function buildChoose(actions: ViewActions): ViewHost {
   const title = h("div", { class: "title" });
   const sub = h("div", { class: "sub" });
-  const ask = h("button", { class: "btn primary", text: tl("Ask a question"), onclick: () => actions.setView("prompt") });
+  // Where a language's words leave no room for the whole row, it keeps only its bubble.
+  const ask = h(
+    "button",
+    { class: "btn primary choose-ask", title: tl("Ask a question"), onclick: () => actions.setView("prompt") },
+    svg(ICONS.bubbleRound, 14),
+    h("span", { text: tl("Ask a question") }),
+  );
   const cancel = h("button", { class: "btn secondary", text: tl("Cancel"), onclick: () => actions.cancelDrop() });
   // With something to make, Cancel steps aside to the corner and leaves the row to the actions.
   const close = h("button", { class: "card-x", title: t("Cancel"), onclick: () => actions.cancelDrop() }, svg(ICONS.xmark, 10));
-  const row = h("div", { class: "actions" }, ask, cancel);
+  const row = h("div", { class: "actions choose-actions" }, ask, cancel);
   const el = h(
     "div",
     { class: "view" },
@@ -132,14 +138,19 @@ export function buildChoose(actions: ViewActions): ViewHost {
       }
       sub.textContent = paths.length > 1 ? t("What do you want to do with them?") : t("What do you want to do with it?");
       const kinds = offers(paths);
-      const key = `${kinds.join()}|${paths.length}`;
+      const picture = onePicture(paths);
+      const key = `${kinds.join()}|${paths.length}|${picture}|${language()}`;
       if (key === shownFor) return;
       shownFor = key;
       const makes = kinds.map((kind, i) =>
         h("button", { class: `btn ${i === 0 ? "primary" : "secondary"}`, text: tl(MAKE[kind]), onclick: () => actions.convert(kind) }),
       );
-      ask.className = `btn ${makes.length ? "secondary" : "primary"}`;
+      if (picture) makes.push(h("button", { class: "btn secondary", text: tl("Copy text"), onclick: () => actions.pictureText() }));
+      ask.classList.toggle("primary", makes.length === 0);
+      ask.classList.toggle("secondary", makes.length > 0);
       row.replaceChildren(...makes, ask, ...(makes.length ? [] : [cancel]));
+      row.classList.remove("tight");
+      requestAnimationFrame(() => row.classList.toggle("tight", row.scrollWidth > row.clientWidth + 1));
       close.hidden = makes.length === 0;
     },
   };

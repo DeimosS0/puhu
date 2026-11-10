@@ -3,7 +3,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { dayCount, parseTask, prune, readTasks, todayList, waited } from "../src/core/today.ts";
+import { dayCount, dueAt, nextReminder, parseTask, prune, readTasks, todayList, waited } from "../src/core/today.ts";
 
 // Friday 6 November 2026, 09:15.
 const NOW = new Date(2026, 10, 6, 9, 15);
@@ -76,4 +76,40 @@ test("the week shows what was done each past day, today's list, and what waits a
   assert.deepEqual(view("2026-11-09"), ["monday"]);
   assert.equal(weekStart(NOW).getDate(), 2, "the week starts on Monday the 2nd");
   assert.equal(weekStart(NOW, 1).getDate(), 9);
+});
+
+test("a time is a word ten minutes before it and an alarm at it, the soonest first", () => {
+  const due = new Date(2026, 10, 6, 14, 0).getTime();
+  const task = { id: "a", text: "diş", day: "2026-11-06", time: "14:00", created: NOW.getTime() };
+  assert.equal(dueAt(task), due);
+  assert.deepEqual(nextReminder([task], NOW.getTime(), 10), { task, at: due - 600_000, kind: "soon" });
+  assert.deepEqual(nextReminder([{ ...task, told: due }], NOW.getTime(), 10)?.kind, "due");
+  assert.equal(nextReminder([{ ...task, told: due }], NOW.getTime(), 10)?.at, due);
+  // At its time only, or off.
+  assert.equal(nextReminder([task], NOW.getTime(), 0)?.kind, "due");
+  assert.equal(nextReminder([task], NOW.getTime(), -1), null);
+  // Rung, done, or without a time: nothing.
+  assert.equal(nextReminder([{ ...task, rang: due }], NOW.getTime(), 10), null);
+  assert.equal(nextReminder([{ ...task, doneAt: 1 }], NOW.getTime(), 10), null);
+  assert.equal(nextReminder([{ ...task, time: undefined }], NOW.getTime(), 10), null);
+});
+
+test("no word before a time written closer to it; a late launch says it at once", () => {
+  const due = new Date(2026, 10, 6, 14, 0).getTime();
+  const task = { id: "a", text: "toplantı", day: "2026-11-06", time: "14:00", created: due - 300_000 };
+  assert.equal(nextReminder([task], due - 240_000, 10)?.kind, "due");
+  const early = { ...task, created: NOW.getTime() };
+  assert.deepEqual(nextReminder([early], due - 120_000, 10), { task: early, at: due - 120_000, kind: "soon" });
+  // A minute late still rings; later than that, today's time was missed; yesterday's is left alone.
+  assert.deepEqual(nextReminder([early], due + 60_000, 10), { task: early, at: due + 60_000, kind: "due" });
+  assert.equal(nextReminder([early], due + 600_000, 10)?.kind, "missed");
+  assert.equal(nextReminder([{ ...early, day: "2026-11-05" }], due + 600_000, 10), null);
+});
+
+test("put off, it rings again then, whatever rang before", () => {
+  const due = new Date(2026, 10, 6, 14, 0).getTime();
+  const task = { id: "a", text: "diş", day: "2026-11-06", time: "14:00", created: NOW.getTime(), rang: due, again: due + 600_000 };
+  assert.deepEqual(nextReminder([task], due + 60_000, 10), { task, at: due + 600_000, kind: "due" });
+  const other = { id: "b", text: "spor", day: "2026-11-06", time: "14:05", created: NOW.getTime(), told: due + 300_000 };
+  assert.equal(nextReminder([task, other], due + 60_000, 10)?.task.id, "b");
 });
